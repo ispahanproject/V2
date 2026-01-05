@@ -21,6 +21,15 @@ const AIRPORT_MAP = {
     "UEO": "RORH", "JCJ": "RJFC"
 };
 
+// CLOSE LEG CHECKLIST DATA
+const CL_DATA = {
+    'INTERVAL': ["CLOSE FLIGHT (eLog)", "PREPARE FLIGHT (eLog)", "FLIGHT INFO TO CABIN"],
+    'SHIP_CHANGE': ["SECURE PROCEDURE", "CLOSE FLIGHT (eLog)", "PERSONAL GEAR CHECK", "CHECK DRINK HOLDER"],
+    'DUTY_OFF': ["SECURE PROCEDURE", "CLOSE FLIGHT (eLog)", "REPORTS (RNP/CAP)", "LOG BOOK SIGN", "PERSONAL GEAR CHECK"]
+};
+
+
+
 // 変換ヘルパー関数
 function toICAO(code) {
     if (!code) return "----";
@@ -44,6 +53,7 @@ let state = {
     timeMode: 'DOM', // 'DOM' or 'INT'
     legs: Array.from({length:4},()=>({
         // 初期値を空にして、未入力時は "----" を表示させる
+        status: 'OPEN', // ★これを追加
         flt: "", 
         dep: "", arr: "", 
         std: "", sta: "", 
@@ -169,6 +179,17 @@ function render() {
         btnWxDep.classList.toggle('active', wxMode === 'dep');
         btnWxArr.classList.toggle('active', wxMode === 'arr');
         btnWxOth.classList.toggle('active', wxMode === 'others');
+    }
+
+    // render() 関数内に追加
+    // Check Leg Status
+    const overlay = document.getElementById('leg-comp-overlay');
+    if (overlay) {
+        if (l.status === 'COMPLETED') {
+            overlay.classList.add('active');
+        } else {
+            overlay.classList.remove('active');
+        }
     }
 }
 
@@ -1838,4 +1859,121 @@ function updateLoadButtonState() {
             </div>
             <span class="status-icon">${statusIcon}</span>
         </div>`;
+}
+
+/* ============================================================
+   MODULE: CLOSE LEG & ENDING LOGIC
+   ============================================================ */
+
+let closeActionType = "";
+let closeCheckState = [];
+
+function openCloseLegModal() {
+    // 既に完了している場合は何もしない（あるいはRe-openを促す）
+    if(state.legs[state.idx].status === 'COMPLETED') return;
+    
+    resetCloseModal();
+    openModal('action');
+}
+
+function resetCloseModal() {
+    document.getElementById('cl-step-select').style.display = 'grid';
+    document.getElementById('cl-step-list').style.display = 'none';
+    document.getElementById('btn-cl-cancel').style.display = 'block';
+    closeActionType = "";
+}
+
+function selectCloseAction(type) {
+    closeActionType = type;
+    const items = [...CL_DATA[type]];
+    
+    // アルコールチェック条件（簡易版：DUTY OFFなら必須とする例）
+    if(type === 'DUTY_OFF') {
+        items.push("⚠️ ALCOHOL CHECK");
+    }
+
+    closeCheckState = new Array(items.length).fill(false);
+    
+    // UI切り替え
+    document.getElementById('cl-step-select').style.display = 'none';
+    document.getElementById('cl-step-list').style.display = 'flex';
+    document.getElementById('btn-cl-cancel').style.display = 'none';
+    
+    // リスト生成
+    const listArea = document.getElementById('cl-items-area');
+    listArea.innerHTML = items.map((txt, i) => {
+        const isAlc = txt.includes("ALCOHOL");
+        const exClass = isAlc ? " alcohol-alert" : "";
+        return `
+        <div class="cl-item ${exClass}" id="cl-item-${i}" onclick="toggleCloseCheck(${i})">
+            <div class="cl-circle"></div>
+            <div class="cl-text">${txt}</div>
+        </div>`;
+    }).join('');
+    
+    validateCloseCheck();
+}
+
+function toggleCloseCheck(i) {
+    closeCheckState[i] = !closeCheckState[i];
+    const el = document.getElementById(`cl-item-${i}`);
+    if(closeCheckState[i]) el.classList.add('checked');
+    else el.classList.remove('checked');
+    
+    validateCloseCheck();
+}
+
+function validateCloseCheck() {
+    const allChecked = closeCheckState.every(Boolean);
+    const btn = document.getElementById('btn-cl-confirm');
+    
+    if(allChecked) {
+        btn.classList.add('ready');
+        btn.innerText = (closeActionType === 'DUTY_OFF') ? "COMPLETE DUTY" : "COMPLETE LEG";
+    } else {
+        btn.classList.remove('ready');
+        btn.innerText = "CHECKLIST INCOMPLETE";
+    }
+}
+
+function confirmCloseLeg() {
+    closeModal('action');
+    
+    // ステータス更新
+    state.legs[state.idx].status = 'COMPLETED';
+    
+    if(closeActionType === 'DUTY_OFF') {
+        // エンディング演出
+        render(); // オーバーレイ表示
+        setTimeout(() => {
+            const endScreen = document.getElementById('ending-screen');
+            if(endScreen) endScreen.classList.add('visible');
+        }, 500);
+    } else {
+        // 次のレグへ
+        // もし次のレグがまだ配列の範囲内なら移動
+        if(state.idx < state.legs.length - 1) {
+            setTimeout(() => {
+                setLeg(state.idx + 1);
+            }, 500);
+        } else {
+            render(); // 最終レグ完了
+        }
+    }
+}
+
+function reOpenLeg() {
+    if(confirm("Re-open this leg for editing?")) {
+        state.legs[state.idx].status = 'OPEN';
+        render();
+    }
+}
+
+function resetSystem() {
+    const endScreen = document.getElementById('ending-screen');
+    if(!endScreen.classList.contains('visible')) return;
+    
+    if(confirm("Start a new duty? (All data will be reset)")) {
+        location.reload(); // シンプルにリロードしてリセット
+    }
 }
