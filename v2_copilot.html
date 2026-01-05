@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CO-PILOT PAD v2</title>
+    <link rel="stylesheet" href="v2_style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div class="app-grid">
+        <aside class="status-panel">
+            <a href="index.html" class="nav-back">◀ HOME</a>
+
+            <div class="leg-tabs" id="leg-nav-area"></div>
+
+            <div class="flight-id-area">
+                <div class="flt-main" onclick="openNumpad('flt')">
+                    <span class="prefix">JL</span><span id="disp-flt">----</span>
+                </div>
+                <div class="route-main">
+                    <span id="disp-dep" class="apt-code" onclick="openKeyboard('dep')">---</span>
+                    <span class="arrow">✈︎</span>
+                    <span id="disp-arr" class="apt-code" onclick="openKeyboard('arr')">---</span>
+                </div>
+                
+                <div class="time-mode-switch">
+                    <button class="tm-btn active" id="tm-dom" onclick="toggleTimeMode('DOM')">DOM (LOC)</button>
+                    <button class="tm-btn" id="tm-int" onclick="toggleTimeMode('INT')">INT (UTC)</button>
+                </div>
+            </div>
+
+            <div class="time-grid-huge">
+                <div class="t-cell" onclick="openNumpad('std')">
+                    <span class="t-label">STD</span>
+                    <span class="t-val" id="disp-std">--:--</span>
+                </div>
+                
+                <div class="t-cell" onclick="openNumpad('sta')">
+                    <span class="t-label">STA</span>
+                    <span class="t-val" id="disp-sta">--:--</span>
+                </div>
+                
+                <div class="t-cell" onclick="openNumpad('timeEnroute')">
+                    <span class="t-label">EST FLT TIME</span>
+                    <span class="t-val val-green" id="disp-flt-time">--:--</span>
+                </div>
+                
+                <div class="t-cell" onclick="openNumpad('taxi')">
+                    <span class="t-label">TAXI</span>
+                    <span class="t-val val-green" id="disp-taxi">--</span>
+                </div>
+            </div>
+
+           <div class="metrics-row">
+                <div class="m-box warning">
+                    <span class="m-label">TTOT</span>
+                    <span class="m-val" id="disp-ttot">--:--</span>
+                </div>
+                <div class="m-box info">
+                    <span class="m-label">INTERVAL</span>
+                    <span class="m-val" id="disp-interval">--+--</span>
+                </div>
+            </div>
+
+            <div class="bottom-status">
+                <div class="status-row pax-group">
+                    <div class="pax-box main" onclick="openNumpad('paxTotal')">
+                        <span class="pax-label">PAX TOTAL</span>
+                        <span class="pax-val" id="disp-pax-total">---</span>
+                    </div>
+                    <div class="pax-box sub" onclick="openNumpad('paxInf')">
+                        <span class="pax-label">INFANT</span>
+                        <span class="pax-val small" id="disp-pax-inf">--</span>
+                    </div>
+                </div>
+
+                <button class="sp-btn full-row" id="btn-sp-pax" onclick="openModal('sp')">
+                    <div class="sp-content-left">
+                        <span class="sp-icon">♿</span>
+                        <span class="sp-label">SPECIAL PAX</span>
+                    </div>
+                    <span class="badge" id="badge-sp">0</span>
+                </button>
+
+                <button class="sp-btn full-row" id="btn-sp-load" onclick="openModal('load')">
+                    <div class="sp-content-left">
+                        <span class="sp-icon">📦</span>
+                        <span class="sp-label">SPECIAL LOAD</span>
+                    </div>
+                    <div class="dot" id="dot-load"></div>
+                </button>
+            </div>
+
+            <button class="btn-close" onclick="toggleLegComplete()">CLOSE LEG</button>
+        </aside>
+
+        <main class="main-panel">
+            
+            <section class="workspace-area">
+                <div class="tabs-row">
+                    <button class="sys-tab active" onclick="switchTab('checklist')" id="tab-btn-checklist">
+                        <span class="tab-icon">✓</span> CHECKLIST
+                    </button>
+                    <button class="sys-tab" onclick="switchTab('turb')" id="tab-btn-turb">
+                        <span class="tab-icon">⚡</span> TURB LOG
+                    </button>
+                    <button class="sys-tab" onclick="switchTab('wx')" id="tab-btn-wx">
+                        <span class="tab-icon">☁️</span> WX
+                    </button>
+                    <button class="sys-tab" onclick="switchTab('ref')" id="tab-btn-ref">
+                        <span class="tab-icon">📚</span> REF
+                    </button>
+                </div>
+
+                <div class="tab-content active" id="tab-content-checklist">
+                    <div id="checklist-area" class="checklist-container"></div>
+                    <div id="checklist-complete-msg">BLOCK OUT READY</div>
+                </div>
+
+                <div class="tab-content" id="tab-content-turb">
+                    <div class="turb-layout">
+                        <div class="turb-input-zone">
+                            <div class="turb-group group-fl">
+                                <div class="tg-label">FL (FROM - TO)</div>
+                                <div class="fl-dual-container">
+                                    <div class="fl-scroll-box" id="turb-fl-from"></div>
+                                    <div class="fl-scroll-box" id="turb-fl-to"></div>
+                                </div>
+                            </div>
+                            <div class="turb-group group-cause">
+                                <div class="tg-label">CAUSE</div>
+                                <div class="cause-grid">
+                                    <button class="c-btn" onclick="setTurbCause('CLR')">CLR</button>
+                                    <button class="c-btn" onclick="setTurbCause('ITC')">ITC</button>
+                                    <button class="c-btn" onclick="setTurbCause('INC')">INC</button>
+                                    <button class="c-btn" onclick="setTurbCause('BSE')">BSE</button>
+                                    <button class="c-btn" onclick="setTurbCause('JBS')">JBS</button>
+                                    <button class="c-btn" onclick="setTurbCause('BTW')">BTW</button>
+                                    <button class="c-btn" onclick="setTurbCause('JTP')">JTP</button>
+                                    <button class="c-btn" onclick="setTurbCause('TOP')">TOP</button>
+                                    <button class="c-btn" onclick="setTurbCause('OTP')">OTP</button>
+                                </div>
+                            </div>
+                            <div class="turb-group group-freq">
+                                <div class="tg-label">DURATION</div>
+                                <div class="int-stack">
+                                    <button class="i-btn freq" id="btn-intm" onclick="setTurbFreq('INTM')">INTM</button>
+                                    <button class="i-btn freq" id="btn-ocnl" onclick="setTurbFreq('OCNL')">OCNL</button>
+                                    <button class="i-btn freq" id="btn-cont" onclick="setTurbFreq('CONT')">CONT</button>
+                                </div>
+                            </div>
+                            <div class="turb-group group-int">
+                                <div class="tg-label">INTENSITY</div>
+                                <div class="int-stack">
+                                    <button class="i-btn t1" onclick="addTurbLog('TB1')">TB1</button>
+                                    <button class="i-btn t2" onclick="addTurbLog('TB2')">TB2</button>
+                                    <button class="i-btn t3" onclick="addTurbLog('TB3')">TB3</button>
+                                    <button class="i-btn t4" onclick="addTurbLog('TB4')">TB4</button>
+                                    <button class="i-btn t6" onclick="addTurbLog('TB6')">TB6</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="turb-log-header">
+                            <span style="flex:1.2">FL</span>
+                            <span style="flex:1">CAUSE</span>
+                            <span style="flex:0.8">DUR</span>
+                            <span style="flex:0.8">INT</span>
+                            <span style="flex:0.8; text-align:right;">TIME</span>
+                        </div>
+                        <div class="turb-log-list" id="turb-log-list"></div>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-content-wx">
+                    <div class="wx-display-container">
+                        <div class="wx-ctrl-row">
+                            <div class="wx-station-display">
+                                <span class="wx-label-mini">ICAO</span>
+                                <span class="wx-station-code" id="wx-target-code" onclick="inputWxStation()">----</span>
+                            </div>
+                            <div class="wx-tabs-mini">
+                                <button class="wx-mini-btn active" id="wx-btn-dep" onclick="switchWxView('dep')">DEP</button>
+                                <button class="wx-mini-btn" id="wx-btn-arr" onclick="switchWxView('arr')">ARR</button>
+                                <button class="wx-mini-btn" id="wx-btn-others" onclick="switchWxView('others')">OTHERS</button>
+                            </div>
+                            <button class="wx-refresh-btn" onclick="refreshWx()">🔄 REFRESH</button>
+                        </div>
+                        
+                        <div class="wx-data-box vmc" id="wx-box-metar">
+                            <div class="wx-box-label">METAR</div>
+                            <div class="wx-text-body" id="wx-content-metar">--</div>
+                        </div>
+                        
+                        <div class="wx-data-box" id="wx-box-taf">
+                            <div class="wx-box-label">TAF</div>
+                            <div class="wx-text-body" id="wx-content-taf">--</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tab-content" id="tab-content-ref">
+                    <div class="ref-grid-tab">
+                        <div class="ref-card-btn">
+                            <span class="ref-icon-large">⛽</span>
+                            <span class="ref-title">FUEL POLICY</span>
+                        </div>
+                        <div class="ref-card-btn">
+                            <span class="ref-icon-large">🌪️</span>
+                            <span class="ref-title">WIND LIMIT</span>
+                        </div>
+                        <div class="ref-card-btn">
+                            <span class="ref-icon-large">❄️</span>
+                            <span class="ref-title">COLD WX OPS</span>
+                        </div>
+                        <div class="ref-card-btn">
+                            <span class="ref-icon-large">📐</span>
+                            <span class="ref-title">CONVERTER</span>
+                        </div>
+                        <div class="ref-card-btn">
+                            <span class="ref-icon-large">⚠️</span>
+                            <span class="ref-title">MEL / CDL</span>
+                        </div>
+                        <div class="ref-card-btn">
+                            <span class="ref-icon-large">📞</span>
+                            <span class="ref-title">CONTACTS</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+
+           <section class="launcher-area">
+                <div class="launch-btn" onclick="openModal('calc-wind')">
+                    <div class="l-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2" />
+                        </svg>
+                    </div>
+                    <div class="l-label">WIND CALC</div>
+                </div>
+
+                <div class="launch-btn" onclick="openModal('perf')">
+                    <div class="l-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M2 22h20" />
+                            <path d="M5.8 17L3 12.5l5.5-2.5L12 3l3.5 6 7 2-1.5 3.5" />
+                        </svg>
+                    </div>
+                    <div class="l-label">LDG PERF</div>
+                </div>
+
+                <div class="launch-btn" onclick="openModal('tfc')">
+                    <div class="l-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                            <circle cx="12" cy="12" r="4" />
+                            <path d="M12 12L20.5 7.5" />
+                        </svg>
+                    </div>
+                    <div class="l-label">TFC</div>
+                </div>
+
+                <div class="launch-btn" onclick="openModal('cross')">
+                    <div class="l-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <line x1="3" y1="12" x2="21" y2="12" stroke-dasharray="4 4" />
+                            <path d="M7 20V4l6 6" />
+                            <path d="M17 20V4l-6 6" transform="translate(4,0)" /> 
+                        </svg>
+                    </div>
+                    <div class="l-label" id="cross-label">CROSS OVER</div>
+                    <div class="l-val-dynamic" id="cross-val" style="display:none;">FL --</div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="modal-numpad" class="modal-overlay">
+        <div class="numpad-card">
+            <div class="np-header"><span id="np-label">VALUE</span><span id="np-val"></span></div>
+            <div class="np-grid">
+                <button onclick="npInput('7')">7</button><button onclick="npInput('8')">8</button><button onclick="npInput('9')">9</button>
+                <button onclick="npInput('4')">4</button><button onclick="npInput('5')">5</button><button onclick="npInput('6')">6</button>
+                <button onclick="npInput('1')">1</button><button onclick="npInput('2')">2</button><button onclick="npInput('3')">3</button>
+                <button onclick="npInput('0')" class="zero">0</button><button onclick="npBack()" class="del">⌫</button>
+            </div>
+            <div class="np-footer"><button class="np-cancel" onclick="closeModal('numpad')">CANCEL</button><button class="np-ok" onclick="npConfirm()">ENTER</button></div>
+        </div>
+    </div>
+
+    <div id="modal-sp" class="modal-overlay" onclick="closeModal('sp')">
+        <div class="sp-iso-modal-content" onclick="event.stopPropagation()">
+            <div class="sp-iso-modal-header">
+                SPECIAL PASSENGER HANDLING & LIMITS
+                <button class="sp-iso-header-clear" onclick="clearSpData()">CLEAR</button>
+            </div>
+            
+            <div class="sp-iso-body">
+                <div class="sp-iso-col-left">
+                    <span class="label-mini" style="color: var(--primary) !important;">QUANTITY</span>
+                    <div class="sp-iso-grid" id="sp-iso-grid-area"></div>
+                    <input type="text" id="sp-iso-memo" class="sp-iso-memo-input" 
+                           placeholder="REMARKS (e.g. SEAT 5A WCHC)" oninput="updateSpMemo(this.value)">
+                </div>
+
+                <div class="sp-iso-col-right">
+                    <div class="sp-iso-ref-header">
+                        <span class="pos-code">CODE</span>
+                        <span class="pos-solo">単独搭乗</span>
+                        <span class="pos-note">備考</span>
+                    </div>
+                    <div id="sp-iso-ref-list" class="sp-iso-ref-list-container"></div>
+                    
+                    <div class="sp-iso-ref-footer">
+                        <span class="sp-iso-limit-title">B737-800 HANDLING NOTES & LIMITS</span>
+                        • WCHC/S/R + STCR 合計最大 8名 / STCR 最大 1名<br>
+                        • WCHC 単独：150席以下構成 Max 1 / 151席以上構成 Max 2
+                    </div>
+                </div>
+            </div>
+
+            <div class="sp-iso-btn-group">
+                <button class="sp-iso-btn-confirm" onclick="closeModal('sp'); render();">CONFIRM & CLOSE</button>
+            </div>
+        </div>
+    </div> 
+    
+    <div id="modal-load" class="modal-overlay" onclick="closeModal('load')">
+    <div class="modal-card" onclick="event.stopPropagation()">
+        <div class="m-head">SPECIAL LOAD / NOTOC</div>
+        
+        <div style="overflow-y:auto; padding-right:5px; flex:1;">
+            <div class="sec-header" style="margin-top:0">QUANTITY ITEMS</div>
+
+            <div id="row-dry" class="detail-row">
+                <div class="row-left">
+                    <div class="row-label-group"><span class="row-label">DRY ICE</span><span class="row-sub">ドライアイス</span></div>
+                    <div class="toggle-group">
+                        <button class="toggle-btn active" onclick="setLoadDryMode('DOM')" id="btn-dry-dom">DOM</button>
+                        <button class="toggle-btn" onclick="setLoadDryMode('INT')" id="btn-dry-int">INT</button>
+                    </div>
+                </div>
+                <div class="input-group-styled"><input type="number" id="in-dry" class="clean-input" placeholder="0" oninput="validateLoad()"><span class="fixed-unit">KG</span></div>
+            </div>
+
+            <div id="row-mag" class="detail-row">
+                <div class="row-left">
+                    <div class="row-label-group"><span class="row-label">MAGNET</span><span class="row-sub">磁性物質</span></div>
+                    <div class="pos-group" id="grp-mag-pos">
+                        <button class="pos-btn" onclick="toggleLoadPos(this)">F1</button><button class="pos-btn" onclick="toggleLoadPos(this)">F2</button><button class="pos-btn" onclick="toggleLoadPos(this)">R1</button><button class="pos-btn" onclick="toggleLoadPos(this)">R2</button>
+                    </div>
+                </div>
+                <div class="input-group-styled"><input type="number" id="in-mag" class="clean-input" placeholder="0" oninput="validateLoad()"><span class="fixed-unit">KG</span></div>
+            </div>
+
+            <div id="row-radio" class="detail-row">
+                <div class="row-left">
+                    <div class="row-label-group"><span class="row-label">RADIO</span><span class="row-sub">放射性物質</span></div>
+                    <div class="pos-group" id="grp-radio-pos">
+                        <button class="pos-btn" onclick="toggleLoadPos(this)">F1</button><button class="pos-btn" onclick="toggleLoadPos(this)">F2</button><button class="pos-btn" onclick="toggleLoadPos(this)">R1</button><button class="pos-btn" onclick="toggleLoadPos(this)">R2</button>
+                    </div>
+                </div>
+                <div class="input-group-styled"><input type="number" id="in-radio-ti" step="0.1" class="clean-input" placeholder="0" oninput="validateLoad()"><span class="fixed-unit">TI</span></div>
+            </div>
+
+            <div id="row-beads" class="detail-row" style="flex-wrap: wrap;">
+                <div class="row-label-group"><span class="row-label">UN2211</span><span class="row-sub">発泡ビーズ</span></div>
+                <div style="flex:1; display:flex; gap:6px; justify-content: flex-end;">
+                    <div style="display:flex; flex-direction:column; gap:1px;"><span style="font-size:0.5rem; color:#94a3b8; font-weight:700; padding-left:2px;">FWD</span><div class="input-group-styled" style="width:80px;"><input type="number" id="in-beads-fwd" class="clean-input" placeholder="0" oninput="validateLoad()"><span class="fixed-unit">KG</span></div></div>
+                    <div style="display:flex; flex-direction:column; gap:1px;"><span style="font-size:0.5rem; color:#94a3b8; font-weight:700; padding-left:2px;">AFT</span><div class="input-group-styled" style="width:80px;"><input type="number" id="in-beads-aft" class="clean-input" placeholder="0" oninput="validateLoad()"><span class="fixed-unit">KG</span></div></div>
+                </div>
+            </div>
+
+            <div class="sec-header">IMP DANGEROUS GOODS</div>
+            <div class="list-grid" id="load-list-imp">
+                <div class="list-btn" onclick="toggleLoadList(this, 'RFL')"><div class="code-box">RFL</div><div class="text-box"><span class="item-name">Flam Liquid</span><span class="item-desc">引火性液体</span></div></div>
+                <div class="list-btn" onclick="toggleLoadList(this, 'RFS')"><div class="code-box">RFS</div><div class="text-box"><span class="item-name">Flam Solid</span><span class="item-desc">可燃性固体</span></div></div>
+                <div class="list-btn" onclick="toggleLoadList(this, 'RSC')"><div class="code-box">RSC</div><div class="text-box"><span class="item-name">Spont Comb</span><span class="item-desc">自然発火性</span></div></div>
+                <div class="list-btn" onclick="toggleLoadList(this, 'RFW')"><div class="code-box">RFW</div><div class="text-box"><span class="item-name">Wet Flam</span><span class="item-desc">水反応可燃</span></div></div>
+                <div class="list-btn" onclick="toggleLoadList(this, 'RFG')"><div class="code-box">RFG</div><div class="text-box"><span class="item-name">Flam Gas</span><span class="item-desc">引火性ガス</span></div></div>
+                <div class="list-btn" onclick="toggleLoadList(this, 'RCM')"><div class="code-box">RCM</div><div class="text-box"><span class="item-name">Corrosive</span><span class="item-desc">腐食性物質</span></div></div>
+                <div class="list-btn" onclick="toggleLoadList(this, 'RPB')"><div class="code-box">RPB</div><div class="text-box"><span class="item-name">Toxic</span><span class="item-desc">毒物</span></div></div>
+                <div class="list-btn" onclick="toggleLoadList(this, 'RIS')"><div class="code-box">RIS</div><div class="text-box"><span class="item-name">Infectious</span><span class="item-desc">感染性物質</span></div></div>
+                <div class="list-btn" onclick="toggleLoadList(this, 'ELI')"><div class="code-box">ELI</div><div class="text-box"><span class="item-name">Lithium Ion</span><span class="item-desc">リチウム</span></div></div>
+                <div class="list-btn" onclick="toggleLoadList(this, 'RMD')"><div class="code-box">RMD</div><div class="text-box"><span class="item-name">Misc</span><span class="item-desc">その他</span></div></div>
+                <div class="list-btn" onclick="toggleLoadList(this, 'CAO')"><div class="code-box">CAO</div><div class="text-box"><span class="item-name">Cargo Only</span><span class="item-desc">貨物機のみ</span></div></div>
+            </div>
+
+            <div class="sec-header">GENERAL SPECIAL LOAD</div>
+            <div class="list-grid" id="load-list-gen">
+                <div class="list-btn" onclick="toggleLoadList(this, 'AVI')"><div class="code-box">AVI</div><div class="text-box"><span class="item-name">Live Animal</span><span class="item-desc">生動物</span></div></div>
+                <div class="list-btn" onclick="toggleLoadList(this, 'HUM')"><div class="code-box">HUM</div><div class="text-box"><span class="item-name">Remains</span><span class="item-desc">遺体</span></div></div>
+                <div class="list-btn" onclick="toggleLoadList(this, 'VAL')"><div class="code-box">VAL</div><div class="text-box"><span class="item-name">Valuable</span><span class="item-desc">貴重品</span></div></div>
+                <div class="list-btn" onclick="toggleLoadList(this, 'SPWP')"><div class="code-box">SPWP</div><div class="text-box"><span class="item-name">Weapons</span><span class="item-desc">銃砲刀剣類</span></div></div>
+                <div class="list-btn" onclick="toggleLoadList(this, 'PRG')"><div class="code-box">PRG</div><div class="text-box"><span class="item-name">Perishable</span><span class="item-desc">生鮮物</span></div></div>
+                <div class="list-btn" onclick="toggleLoadList(this, 'EAT')"><div class="code-box">EAT</div><div class="text-box"><span class="item-name">Foodstuffs</span><span class="item-desc">食料品</span></div></div>
+            </div>
+
+        </div>
+        <button class="m-close" onclick="closeModal('load')">CONFIRM & CLOSE</button>
+    </div>
+</div>
+
+    <div id="modal-tfc" class="modal-overlay" onclick="closeModal('tfc')">
+        <div id="tfc-iso-wrapper" onclick="event.stopPropagation()">
+            <div id="tfc-iso-header">
+                <div>
+                    <div id="tfc-iso-title">TRAFFIC INFO</div>
+                    <div id="tfc-iso-subtitle">TARGET: <span id="tfc-target-disp">---</span></div>
+                </div>
+                <button onclick="closeModal('tfc')" class="tfc-close-btn">CLOSE</button>
+            </div>
+
+            <div id="tfc-iso-list-area">
+                <div style="text-align:center; padding:20px; color:#64748b;">NO TRAFFIC DATA</div>
+            </div>
+            
+            <div id="tfc-iso-footer">
+                <button class="tfc-iso-btn" onclick="refreshTfc()">REFRESH</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-wx" class="modal-overlay" onclick="closeModal('wx')">
+        <div class="modal-card wide" onclick="event.stopPropagation()">
+            <div class="m-head">WX REPORT</div>
+            <div style="display:flex; gap:10px; margin-bottom:10px;">
+                <button class="tab-btn small active" onclick="switchWx('dep')">DEP</button>
+                <button class="tab-btn small" onclick="switchWx('arr')">ARR</button>
+            </div>
+            <div id="wx-content" class="wx-box">NO DATA</div>
+            <button class="m-close" onclick="closeModal('wx')">CLOSE</button>
+        </div>
+    </div>
+
+    <div id="modal-ref" class="modal-overlay" onclick="closeModal('ref')">
+        <div class="modal-card" onclick="event.stopPropagation()">
+            <div class="m-head">REFERENCE</div>
+            <div class="ref-grid">
+                <div>⛽ FUEL</div><div>🌪️ WIND</div><div>⚠️ MEL</div><div>❄️ COLD</div>
+            </div>
+            <button class="m-close" onclick="closeModal('ref')">CLOSE</button>
+        </div>
+    </div>
+
+    <div id="modal-cross" class="modal-overlay" onclick="closeModal('cross')">
+        <div class="modal-card" onclick="event.stopPropagation()">
+            <div class="m-head">CROSSOVER ALTITUDE</div>
+            
+            <div class="co-input-area">
+                <div class="co-input-group">
+                    <span class="co-label">DES MACH</span>
+                    <div class="co-stepper">
+                        <button class="co-step-btn" onclick="adjMach(-0.01)">-</button>
+                        <input type="number" id="in-mach" class="co-step-val" value="0.76" step="0.01" readonly style="color:var(--cyan)">
+                        <button class="co-step-btn" onclick="adjMach(0.01)">+</button>
+                    </div>
+                </div>
+                <div class="co-input-group">
+                    <span class="co-label">DES IAS</span>
+                    <div class="co-stepper">
+                        <button class="co-step-btn" onclick="adjIas(-10)">-</button>
+                        <input type="number" id="in-ias" class="co-step-val" value="280" step="10" readonly style="color:var(--green)">
+                        <button class="co-step-btn" onclick="adjIas(10)">+</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="co-scale-container">
+                <span class="co-scale-label mach-zone">MACH DESCENT</span>
+                <div class="co-scale-line"></div>
+                <div id="visual-fl" class="crossover-marker">--</div>
+                <span class="co-scale-label ias-zone">IAS DESCENT</span>
+            </div>
+
+            <div class="co-result-box">
+                <span style="font-size:0.7rem; color:var(--muted); font-weight:700; letter-spacing:0.1em; display:block; margin-bottom:5px;">TRANSITION LEVEL</span>
+                <div class="co-res-display">
+                    <span class="co-res-prefix">FL</span>
+                    <span id="res-fl" class="co-res-val">--</span>
+                </div>
+            </div>
+
+            <button class="m-close" onclick="closeModal('cross')">CLOSE</button>
+        </div>
+    </div>
+
+    <div id="modal-calc-wind" class="modal-overlay" onclick="closeModal('calc-wind')">
+        <div id="wind-iso-card" onclick="event.stopPropagation()">
+            
+            <div id="wind-iso-left">
+                <div class="modal-header">
+                    <div class="modal-title" style="color:#3b82f6;">
+                        <span>🌪️</span> WIND CALCULATOR
+                    </div>
+                    <button style="background:none; border:none; color:#94a3b8; font-size:1.5rem; cursor:pointer;" onclick="closeModal('calc-wind')">×</button>
+                </div>
+
+                <div style="display:flex; gap:10px; margin-bottom:15px; padding:0 10px;">
+                    <button id="btn-wind-to" class="wind-mode-btn active" onclick="setWindMode('takeoff')">
+                        TAKEOFF (DEP)
+                    </button>
+                    <button id="btn-wind-ldg" class="wind-mode-btn" onclick="setWindMode('landing')">
+                        LANDING (ARR)
+                    </button>
+                </div>
+
+                <div id="wind-iso-visual">
+                    <canvas id="wind-canvas" width="120" height="120"></canvas>
+                </div>
+
+                <div class="wind-iso-section">
+                    <div class="wind-iso-header"><span>🛫</span>RUNWAY CONFIG</div>
+                    <div class="wind-iso-row">
+                        <div style="flex:1.2;">
+                            <div class="wind-iso-label">SELECT RWY</div>
+                            <select id="calc-rwy-sel" class="wind-iso-input" onchange="updateHdgFromSel()"></select>
+                        </div>
+                        <div style="flex:1.8;">
+                            <div class="wind-iso-label">MAG HDG</div>
+                            <div class="wind-iso-stepper">
+                                <button class="wind-iso-btn" onclick="stepHdg(-1)">-1</button>
+                                <input type="text" inputmode="numeric" id="calc-hdg" class="wind-iso-input" placeholder="---" oninput="runCalc()" onblur="formatHdg()" maxlength="3">
+                                <button class="wind-iso-btn" onclick="stepHdg(1)">+1</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="wind-iso-section">
+                    <div class="wind-iso-header"><span>💨</span>WIND DATA</div>
+                    <div class="wind-iso-row">
+                        <div style="flex:1.8;">
+                            <div class="wind-iso-label">DIRECTION (°)</div>
+                            <div class="wind-iso-stepper">
+                                <button class="wind-iso-btn" onclick="stepDir(-10)">-10</button>
+                                <input type="text" inputmode="numeric" id="calc-wd" class="wind-iso-input" placeholder="deg" oninput="runCalc()" onblur="formatDir()" maxlength="3">
+                                <button class="wind-iso-btn" onclick="stepDir(10)">+10</button>
+                            </div>
+                        </div>
+                        <div style="flex:1.2;">
+                            <div class="wind-iso-header" style="justify-content:space-between; margin-bottom:4px;">
+                                <span class="wind-iso-label" style="margin:0;">SPEED</span>
+                                <div id="wind-iso-switch">
+                                    <div id="u-kt" class="active" onclick="setUnit('kt')">KT</div>
+                                    <div id="u-m" onclick="setUnit('m')">m/s</div>
+                                </div>
+                            </div>
+                            <input type="number" id="calc-ws" class="wind-iso-input" placeholder="kt" oninput="runCalc()">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="wind-iso-grid">
+                    <div class="wind-iso-res-card">
+                        <span class="wind-iso-label">HEAD / TAIL</span>
+                        <div><span id="res-hw" class="wind-iso-val">--</span><span style="font-size:0.8rem; color:#94a3b8;">kt</span></div>
+                    </div>
+                    <div class="wind-iso-res-card">
+                        <span class="wind-iso-label">CROSS WIND</span>
+                        <div><span id="res-xw" class="wind-iso-val">--</span><span style="font-size:0.8rem; color:#94a3b8;">kt</span></div>
+                    </div>
+                </div>
+
+                <div id="status-display" style="text-align:center; padding:10px; margin-top:10px; border-radius:10px; border:1px solid #334155; color:#94a3b8;">--</div>
+
+                <div class="wind-iso-section">
+                    <div class="wind-iso-header"><span>⚠️</span>LIMIT CONFIG (KT)</div>
+                    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;">
+                        <div class="wind-iso-res-card"><span class="wind-iso-label">HEAD</span><input type="number" id="lim-hw" style="background:transparent; border:none; color:#f59e0b; font-weight:900; width:100%; text-align:center; font-size:1rem;" value="25" oninput="saveLimit('hw', this.value)"></div>
+                        <div class="wind-iso-res-card"><span class="wind-iso-label">TAIL</span><input type="number" id="lim-tw" style="background:transparent; border:none; color:#f59e0b; font-weight:900; width:100%; text-align:center; font-size:1rem;" value="10" oninput="saveLimit('tw', this.value)"></div>
+                        <div class="wind-iso-res-card"><span class="wind-iso-label">CROSS</span><input type="number" id="lim-xw" style="background:transparent; border:none; color:#f59e0b; font-weight:900; width:100%; text-align:center; font-size:1rem;" value="30" oninput="saveLimit('xw', this.value)"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="wind-iso-right">
+                <div style="padding:15px 20px 8px 20px; border-bottom:1px solid #334155; background:#0b1120;">
+                    <span style="font-size:0.8rem; font-weight:900; color:#3b82f6; display:block; margin-bottom:8px;">LIMIT ANALYSIS (360°)</span>
+                    <div style="display:grid; grid-template-columns:0.7fr 1fr 1fr 1fr; padding:6px; background:rgba(59,130,246,0.1); color:#3b82f6; font-size:0.6rem; font-weight:900; border-radius:6px; text-align:center;">
+                        <div>WIND</div><div>XW-MAX</div><div>HW/TW</div><div>LIMIT</div>
+                    </div>
+                </div>
+                <div id="chart-rows" style="flex-grow:1; overflow-y:auto; padding:8px 20px; display:flex; flex-direction:column; gap:4px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-perf" class="modal-overlay" onclick="closeModal('perf')">
+        <div id="perf-iso-wrapper" onclick="event.stopPropagation()">
+            
+            <div id="perf-iso-main-cols">
+                <div id="perf-iso-col-input">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <span class="perf-iso-section-label">INPUT PARAMETERS</span>
+                        <span id="perf-apt-name-disp" style="font-size:0.7rem; color:#94a3b8; font-weight:900;"></span>
+                    </div>
+                    
+                    <div style="margin-bottom:10px;">
+                        <span class="perf-iso-sub-label">RUNWAY <span id="perf-rwy-data-disp" style="color:#94a3b8; font-weight:400; margin-left:5px;"></span></span>
+                        <div id="perf-rwy-btn-container" class="perf-iso-btn-group"><span style="color:#94a3b8; font-size:0.8rem;">Select Airport...</span></div>
+                    </div>
+
+                    <div style="margin-bottom:10px;">
+                        <span class="perf-iso-sub-label">RWY CONDITION</span>
+                        <div class="perf-iso-btn-group">
+                            <button class="perf-iso-select-btn perf-iso-cc-btn active" data-val="6" onclick="perfSelectCC(6)">6</button>
+                            <button class="perf-iso-select-btn perf-iso-cc-btn" data-val="5" onclick="perfSelectCC(5)">5</button>
+                            <button class="perf-iso-select-btn perf-iso-cc-btn" data-val="4" onclick="perfSelectCC(4)">4</button>
+                            <button class="perf-iso-select-btn perf-iso-cc-btn" data-val="3" onclick="perfSelectCC(3)">3</button>
+                            <button class="perf-iso-select-btn perf-iso-cc-btn" data-val="2" onclick="perfSelectCC(2)">2</button>
+                            <button class="perf-iso-select-btn perf-iso-cc-btn" data-val="1" onclick="perfSelectCC(1)">1</button>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:10px; margin-bottom:10px;">
+                        <div style="flex:0.8">
+                            <span class="perf-iso-sub-label">FLAP</span>
+                            <div class="perf-iso-btn-group">
+                                <button class="perf-iso-select-btn active" onclick="perfSelectFlap(this, 30)">30</button>
+                                <button class="perf-iso-select-btn" onclick="perfSelectFlap(this, 40)">40</button>
+                            </div>
+                        </div>
+                        <div style="flex:1">
+                            <span class="perf-iso-sub-label">ADD SPD</span>
+                            <div class="perf-iso-stepper-group">
+                                <button class="perf-iso-step-btn" onclick="perfAdjAdd(-1)">−</button>
+                                <input type="text" id="perf-add-disp" class="perf-iso-step-input" style="color:#06b6d4;" value="+5" readonly>
+                                <button class="perf-iso-step-btn" onclick="perfAdjAdd(1)">+</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:10px; margin-bottom:10px;">
+                        <div style="flex:1">
+                            <span class="perf-iso-sub-label">WIND COMP</span>
+                            <div class="perf-iso-stepper-group">
+                                <button class="perf-iso-step-btn" onclick="perfAdjWind(-5)">T</button>
+                                <input type="text" id="perf-wind-disp" class="perf-iso-step-input" style="color:white;" value="0" readonly>
+                                <button class="perf-iso-step-btn" onclick="perfAdjWind(5)">H</button>
+                            </div>
+                        </div>
+                        <div style="flex:0.8">
+                            <span class="perf-iso-sub-label">REVERSER</span>
+                            <div class="perf-iso-btn-group">
+                                <button class="perf-iso-select-btn active" onclick="perfSelectRev(this, false)">NO</button>
+                                <button class="perf-iso-select-btn" onclick="perfSelectRev(this, true)">REV</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="display:flex; gap:10px; margin-bottom:10px;">
+                        <div style="flex:1">
+                            <span class="perf-iso-sub-label">LDW (1000LBS)</span>
+                            <div class="perf-iso-stepper-group">
+                                <button class="perf-iso-step-btn" onclick="perfAdjLdw(-1.0)">−</button>
+                                <input type="number" id="perf-in-ldw" class="perf-iso-step-input" style="color:white;" value="130.0" onchange="perfCalc()">
+                                <button class="perf-iso-step-btn" onclick="perfAdjLdw(1.0)">+</button>
+                            </div>
+                        </div>
+                        <div style="flex:1">
+                            <span class="perf-iso-sub-label">AUTOBRAKE</span>
+                            <div class="perf-iso-btn-group">
+                                <button class="perf-iso-select-btn" onclick="perfSelectBrake(this, 2)">2</button>
+                                <button class="perf-iso-select-btn active" onclick="perfSelectBrake(this, 3)">3</button>
+                                <button class="perf-iso-select-btn" onclick="perfSelectBrake(this, 4)">MAX</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="perf-iso-result-container">
+                        <div class="perf-iso-res-box">
+                            <span class="perf-iso-res-label">VAPP</span>
+                            <span class="perf-iso-res-value" id="perf-out-vapp">147</span>
+                        </div>
+                        <div class="perf-iso-res-box">
+                            <span class="perf-iso-res-label">REQ DIST (FACTORED)</span>
+                            <div>
+                                <span class="perf-iso-res-value" id="perf-out-dist">--</span>
+                                <span class="perf-iso-res-sub">ft</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="perf-iso-col-ref">
+                    <div class="perf-iso-ref-title">X-WIND LIMIT (KT)</div>
+                    <div class="perf-iso-ref-row active" id="perf-row-6" data-cc="6"><span class="perf-iso-ref-cc">CC 6</span><span class="perf-iso-ref-val">33 KT</span></div>
+                    <div class="perf-iso-ref-row" id="perf-row-5" data-cc="5"><span class="perf-iso-ref-cc">CC 5</span><span class="perf-iso-ref-val">25 KT</span></div>
+                    <div class="perf-iso-ref-row" id="perf-row-4" data-cc="4"><span class="perf-iso-ref-cc">CC 4</span><span class="perf-iso-ref-val">20 KT</span></div>
+                    <div class="perf-iso-ref-row" id="perf-row-3" data-cc="3"><span class="perf-iso-ref-cc">CC 3</span><span class="perf-iso-ref-val">20 KT</span></div>
+                    <div class="perf-iso-ref-row" id="perf-row-2" data-cc="2"><span class="perf-iso-ref-cc">CC 2</span><span class="perf-iso-ref-val">15 KT</span></div>
+                    <div class="perf-iso-ref-row" id="perf-row-1" data-cc="1"><span class="perf-iso-ref-cc">CC 1</span><span class="perf-iso-ref-val">10 KT</span></div>
+                    
+                    <div style="background:rgba(0,0,0,0.3); padding:8px; border-radius:8px; margin-top:10px; text-align:center;">
+                        <span class="perf-iso-xw-label">CURRENT X-WIND</span>
+                        <div id="perf-out-xwind" class="perf-iso-xw-val">--</div>
+                    </div>
+                    
+                    <button onclick="closeModal('perf')" style="margin-top:auto; background:rgba(255,255,255,0.1); border:none; color:#94a3b8; padding:10px; border-radius:8px; cursor:pointer;">CLOSE</button>
+                </div>
+            </div>
+
+            <div class="perf-iso-margin-container">
+                <div class="perf-iso-bar-label-row">
+                    <span class="perf-iso-bar-title">SCENARIO COMPARISON</span>
+                    <span class="perf-iso-bar-title">LDA: <span id="perf-bar-lda-ft" style="color:white;">--</span> ft / <span id="perf-bar-lda-m" style="color:#06b6d4;">--</span> m</span>
+                </div>
+                
+                <div class="perf-iso-scenario-row">
+                    <div class="perf-iso-scenario-header">
+                        <span class="perf-iso-sc-title" style="color:#06b6d4">TO 40KT</span>
+                        <div class="perf-iso-sc-val-box"><span><span class="perf-iso-val-label">USED:</span><span id="perf-u-40" style="color:white">--</span></span><span><span class="perf-iso-val-label">REM:</span><span id="perf-r-40" style="color:#94a3b8">--</span></span></div>
+                    </div>
+                    <div class="perf-iso-rwy-strip">
+                        <div class="perf-iso-threshold"></div>
+                        <div class="perf-iso-marker-td-container" style="left:0%;"><span class="perf-iso-marker-icon">✈</span><span class="perf-iso-marker-text">TD</span><div class="perf-iso-marker-line"></div></div>
+                        <div id="perf-bar-exit" class="perf-iso-stop-bar" style="background:#06b6d4;"></div>
+                    </div>
+                </div>
+
+                <div class="perf-iso-scenario-row">
+                    <div class="perf-iso-scenario-header">
+                        <span class="perf-iso-sc-title" style="color:#22c55e">2000ft TD</span>
+                        <div class="perf-iso-sc-val-box"><span><span class="perf-iso-val-label">USED:</span><span id="perf-u-norm" style="color:white">--</span></span><span><span class="perf-iso-val-label">REM:</span><span id="perf-r-norm" style="color:#94a3b8">--</span></span></div>
+                    </div>
+                    <div class="perf-iso-rwy-strip">
+                        <div class="perf-iso-threshold"></div>
+                        <div id="perf-mk-norm" class="perf-iso-marker-td-container"><span class="perf-iso-marker-icon">✈</span><span class="perf-iso-marker-text">TD</span><div class="perf-iso-marker-line"></div></div>
+                        <div id="perf-bar-norm" class="perf-iso-stop-bar" style="background:#22c55e;"></div>
+                    </div>
+                </div>
+
+                <div class="perf-iso-scenario-row" style="margin-bottom:0">
+                    <div class="perf-iso-scenario-header">
+                        <span class="perf-iso-sc-title" style="color:#f97316">3000ft TD</span>
+                        <div class="perf-iso-sc-val-box"><span><span class="perf-iso-val-label">USED:</span><span id="perf-u-deep" style="color:white">--</span></span><span><span class="perf-iso-val-label">REM:</span><span id="perf-r-deep" style="color:#94a3b8">--</span></span></div>
+                    </div>
+                    <div class="perf-iso-rwy-strip">
+                        <div class="perf-iso-threshold"></div>
+                        <div id="perf-mk-deep" class="perf-iso-marker-td-container"><span class="perf-iso-marker-icon">✈</span><span class="perf-iso-marker-text" style="color:#f97316; border-color:#f97316">TD</span><div class="perf-iso-marker-line" style="background:#f97316"></div></div>
+                        <div id="perf-bar-deep" class="perf-iso-stop-bar" style="background:#f97316;"></div>
+                    </div>
+                </div>
+                
+                <div id="perf-rwy-ruler" class="perf-iso-ruler-container"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="tfc_db2.js"></script>
+    <script src="flight_db2.js"></script>
+    <script src="v2_script.js"></script>
+</body>
+</html>
