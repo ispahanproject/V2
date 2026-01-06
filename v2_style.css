@@ -1641,3 +1641,299 @@ body {
 }
 .ending-screen.visible .restart-hint { opacity: 1; animation: blinkHint 3s infinite; }
 @keyframes blinkHint { 0%, 100% { opacity: 0.3; } 50% { opacity: 0.7; } }
+
+/* --- SPECIAL LOAD CLEAR BUTTON --- */
+.header-clear-btn {
+    background: transparent;
+    border: 1px solid var(--danger); /* 赤枠 */
+    color: var(--danger);            /* 赤文字 */
+    font-size: 0.65rem;
+    font-weight: 900;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.2s;
+}
+
+.header-clear-btn:active {
+    background: rgba(239, 68, 68, 0.2);
+    transform: scale(0.95);
+}
+
+/* =========================================
+   W&B MODAL STYLES (INTEGRATED)
+   ========================================= */
+
+.wb-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 16px; padding: 24px; width: 750px; max-width: 95vw;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    display: flex; flex-direction: column; gap: 20px;
+    position: relative;
+    max-height: 90vh; overflow-y: auto;
+}
+
+.wb-layout { display: flex; gap: 25px; }
+.col-left { flex: 1.2; }
+.col-right { width: 260px; display: flex; flex-direction: column; gap: 15px; }
+
+/* Mobile Response */
+@media (max-width: 768px) {
+    .wb-layout { flex-direction: column; }
+    .col-right { width: 100%; }
+}
+
+/* W&B Specific Mode Toggle */
+.mode-toggle {
+    display: flex; background: #0f172a; border-radius: 8px; padding: 4px;
+    border: 1px solid var(--border); overflow: hidden; margin-left: auto; margin-right: 10px;
+}
+.mode-btn {
+    border: none; background: transparent; color: var(--muted);
+    padding: 6px 12px; font-weight: 900; font-size: 0.8rem; cursor: pointer; transition: 0.2s;
+}
+.mode-btn.active {
+    background: rgba(59, 130, 246, 0.2); color: var(--primary);
+}
+
+.m-close-small {
+    background: none; border: none; color: var(--muted); font-size: 1.5rem; cursor: pointer;
+}
+
+/* Chart Container */
+.chart-container {
+    background: #0f172a; border: 1px solid var(--border);
+    border-radius: 12px; padding: 10px; height: 240px; position: relative; margin-top: 15px;
+}
+.chart-container canvas { width: 100%; height: 100%; display: block; }
+.thrust-badge {
+    position: absolute; bottom: 10px; left: 10px; 
+    font-size: 0.7rem; font-weight: 900; color: var(--muted);
+    background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 4px;
+}
+
+/* Limit Cards */
+.limit-card {
+    background: #0f172a; border: 1px solid #334155;
+    border-radius: 12px; padding: 15px;
+    display: flex; flex-direction: column; gap: 6px; position: relative; overflow: hidden;
+}
+.limit-card::after { 
+    content: ''; position: absolute; top:0; left:0; width: 4px; height: 100%;
+    background: var(--muted); transition: 0.3s;
+}
+.limit-card.active-card::after { background: var(--primary); }
+
+.lc-title { font-size: 0.65rem; font-weight: 900; color: #94a3b8; letter-spacing: 0.05em; margin-bottom: 2px; }
+.lc-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; font-weight: 700; color: #64748b; }
+.lc-val { font-family: 'JetBrains Mono', monospace; font-size: 1.0rem; color: white; transition: color 0.3s;}
+
+.lc-bar-bg { width: 100%; height: 6px; background: #1e293b; border-radius: 3px; overflow: hidden; margin: 6px 0; }
+.lc-bar-fill { height: 100%; background: #22c55e; transition: width 0.3s, background-color 0.3s; }
+.lc-margin-row { display: flex; justify-content: space-between; font-size: 0.75rem; font-weight: 800; color: #94a3b8; border-top: 1px solid #1e293b; padding-top: 8px; margin-top: 2px; }
+
+/* Special Styles */
+.ldg-style { border-color: rgba(245, 158, 11, 0.3) !important; background: rgba(245, 158, 11, 0.05) !important; }
+.ldg-style .fixed-unit { color: var(--accent) !important; }
+.fuel-style { border-color: rgba(34, 197, 94, 0.3) !important; background: rgba(34, 197, 94, 0.05) !important; }
+.fuel-style .fixed-unit { color: var(--success) !important; }
+
+/* Burn Alert */
+.burn-alert {
+    display: none; 
+    background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4);
+    border-radius: 8px; padding: 10px; margin-top: 8px;
+    text-align: center; color: #ef4444; font-weight: 900; font-size: 0.8rem;
+    animation: pulseAlert 2s infinite;
+}
+@keyframes pulseAlert { 0% { border-color: rgba(239, 68, 68, 0.4); } 50% { border-color: rgba(239, 68, 68, 1); } 100% { border-color: rgba(239, 68, 68, 0.4); } }
+.tof-highlight { display: block; font-size: 1.1rem; color: #f59e0b; margin-top: 2px; text-shadow: 0 0 10px rgba(245, 158, 11, 0.3); }
+
+/* Status Box */
+#cg-status-box {
+    margin-top: auto; background: rgba(34, 197, 94, 0.1); 
+    border: 1px solid var(--success); color: var(--success); 
+    padding: 12px; border-radius: 8px; text-align: center; font-weight: 900; font-size: 0.9rem;
+    transition: 0.3s;
+}
+
+/* =========================================
+   W&B FIXES & MISSING STYLES
+   ========================================= */
+
+/* 1. レイアウト崩れの原因：W&B内だけ入力欄の幅制限を解除 */
+.wb-layout .input-group-styled {
+    width: auto !important; /* 100px固定を解除 */
+    flex: 1;                /* 横いっぱいに広げる */
+}
+
+/* 2. 定義漏れのクラスを追加 (wb.htmlから移植) */
+.sec-label { 
+    font-size: 0.7rem; 
+    font-weight: 800; 
+    margin-bottom: 5px; 
+    letter-spacing: 0.05em; 
+    margin-top: 10px;
+    display: block;
+}
+
+.input-row { 
+    display: flex; 
+    justify-content: space-between; 
+    gap: 10px; 
+    margin-bottom: 5px; 
+}
+
+/* 3. アラート表示の調整 */
+/* margin-topなどが不足して詰まって見えるのを修正 */
+.burn-alert {
+    /* 既存のスタイルに追加で適用されます */
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 12px;
+}
+
+/* 4. モーダル全体のスクロール調整 (見切れ防止) */
+.wb-card {
+    /* 必要に応じて高さを確保 */
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+/* =========================================
+   W&B LAYOUT FIXES (HEADER & TOGGLE)
+   ========================================= */
+
+/* 1. ヘッダーを Flexbox化して、タイトルとボタンを左右に配置 */
+.wb-card .m-head {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 15px; /* 下との間隔を確保 */
+}
+
+/* 2. タイトル文字の設定（左寄せ確保） */
+.wb-card .m-head > span {
+    margin-right: auto;
+}
+
+/* 3. モード切り替えボタン (wb.htmlの完全移植) */
+.mode-toggle {
+    display: flex; 
+    background: #0f172a; 
+    border-radius: 8px; 
+    padding: 4px;
+    border: 1px solid var(--border); 
+    overflow: hidden;
+    margin-right: 15px; /* 閉じるボタンとの間隔 */
+    height: 40px;       /* 高さ固定 */
+}
+
+.mode-btn {
+    flex: 1;            /* 均等幅に広げる */
+    border: none; 
+    background: transparent; 
+    color: var(--muted);
+    padding: 0 15px;    /* 横幅を確保 */
+    font-weight: 900; 
+    font-size: 0.8rem; 
+    cursor: pointer; 
+    transition: 0.2s;
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    white-space: nowrap; /* 折り返し防止 */
+}
+
+/* アクティブ時のスタイル (wb.html準拠) */
+.mode-btn.active {
+    background: rgba(59, 130, 246, 0.2) !important; 
+    color: var(--primary) !important;
+    box-shadow: inset 0 0 10px rgba(59, 130, 246, 0.1);
+}
+
+/* =========================================
+   HOLDING REFERENCE MODULE
+   ========================================= */
+
+.hold-header { background: #0f172a; padding: 15px; border-bottom: 2px solid var(--primary); text-align: center; position: relative; }
+.hold-title { font-size: 1.1rem; font-weight: 900; letter-spacing: 0.1em; color: white; }
+.hold-subtitle { font-size: 0.6rem; color: var(--primary); margin-top: 4px; font-weight: 900; }
+
+.hold-tabs { display: flex; background: #0f172a; padding: 4px; gap: 4px; border-bottom: 1px solid var(--border); }
+.hold-tab { flex: 1; padding: 10px; border: none; background: transparent; color: var(--muted); font-weight: 900; font-size: 0.7rem; cursor: pointer; border-radius: 8px; transition: 0.2s; }
+.hold-tab.active { background: var(--primary); color: white; }
+
+.hold-section { padding: 15px; background: rgba(30, 41, 59, 0.5); border-bottom: 1px solid var(--border); }
+.hold-sec-title { font-size: 0.6rem; font-weight: 900; color: var(--muted); margin-bottom: 10px; display: block; letter-spacing: 0.1em; }
+
+.hold-spd-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; padding: 10px 12px; background: #0f172a; border-radius: 8px; border-left: 4px solid transparent; }
+.hold-spd-alt { font-size: 0.75rem; font-weight: 700; color: var(--muted); }
+.hold-spd-val { font-family: 'JetBrains Mono'; font-weight: 900; font-size: 1.4rem; color: white; }
+
+.hold-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hold-info-box { background: #0f172a; border-radius: 8px; padding: 10px; text-align: center; border: 1px solid var(--border); }
+.hold-info-label { font-size: 0.55rem; color: var(--muted); font-weight: 700; display: block; margin-bottom: 4px; }
+.hold-info-val { font-family: 'JetBrains Mono'; font-weight: 900; font-size: 1.2rem; color: white; }
+
+.hold-turb-box { grid-column: span 2; border-color: var(--amber); background: rgba(245, 158, 11, 0.1); }
+.hold-turb-val { color: var(--amber); font-size: 1.1rem !important; }
+
+/* Calculator */
+.hold-calc-container { background: #0f172a; border-radius: 8px; padding: 12px; border: 1px solid var(--cyan); grid-column: span 2; }
+.hold-calc-container.hidden { display: none; }
+.hold-calc-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.hold-calc-group { display: flex; flex-direction: column; align-items: center; }
+.hold-calc-group label { font-size: 0.5rem; color: var(--muted); font-weight: 700; margin-bottom: 4px; }
+.hold-calc-group input { width: 90%; background: #1e293b; border: 1px solid var(--border); color: white; font-family: 'JetBrains Mono'; text-align: center; border-radius: 4px; padding: 8px; font-size: 1.1rem; outline: none; }
+
+.hold-res-display { text-align: center; padding-top: 10px; border-top: 1px solid var(--border); margin-top: 10px; position: relative; }
+.hold-res-val { font-family: 'JetBrains Mono'; font-size: 1.5rem; color: white; }
+.hold-reset-btn { position: absolute; right: 0; bottom: 0; background: transparent; border: 1px solid var(--border); color: var(--muted); font-size: 0.5rem; padding: 4px 8px; border-radius: 4px; cursor: pointer; text-transform: uppercase; font-weight: 900; }
+
+/* Rules */
+.hold-rule-list { margin: 0; padding: 0; list-style: none; }
+.hold-rule-item { font-size: 0.7rem; color: white; margin-bottom: 6px; padding-left: 12px; position: relative; font-weight: 700; }
+.hold-rule-item::before { content: "•"; position: absolute; left: 0; color: var(--primary); }
+.hold-rule-important { color: var(--danger); background: rgba(239, 68, 68, 0.15); padding: 8px; border-radius: 6px; border: 1px solid var(--danger); margin-top: 10px; font-weight: 900; display: flex; align-items: center; justify-content: center; gap: 8px; text-transform: uppercase; font-size: 0.8rem; }
+
+/* =========================================
+   CONVERTER MODULE STYLES
+   ========================================= */
+
+.conv-container { display: flex; flex-direction: column; gap: 15px; padding: 10px 0; }
+
+.conv-section { display: flex; flex-direction: column; gap: 5px; }
+.conv-label { font-size: 0.7rem; font-weight: 900; color: var(--muted); margin-left: 5px; }
+
+.conv-input-row { display: flex; gap: 10px; align-items: center; }
+.conv-step-btn {
+    background: #334155; border: none; color: white; border-radius: 6px;
+    width: 60px; height: 40px; font-weight: 900; cursor: pointer; font-size: 0.75rem;
+}
+.conv-step-btn:active { background: var(--primary); }
+
+.conv-sub-info {
+    display: flex; justify-content: space-between; padding: 0 10px;
+    font-size: 0.75rem; font-weight: 700; color: #94a3b8; font-family: 'JetBrains Mono';
+}
+
+.conv-divider { height: 1px; background: var(--border); margin: 5px 0; }
+
+.conv-grid { display: flex; align-items: center; gap: 10px; }
+.conv-col { flex: 1; }
+.conv-arrow { color: var(--muted); font-size: 1.2rem; padding-top: 15px; }
+
+.conv-active-input { border-color: #64748b; background: rgba(0,0,0,0.2); }
+.conv-active-input:focus-within { border-color: var(--primary); background: rgba(59,130,246,0.1); }
+
+/* Result Box */
+.conv-result-box {
+    background: #020617; border: 1px solid var(--border); border-radius: 12px;
+    padding: 15px; text-align: center; margin-top: 10px;
+}
+.conv-res-label { font-size: 0.7rem; color: var(--primary); font-weight: 900; letter-spacing: 0.1em; display: block; margin-bottom: 5px; }
+.conv-res-val { font-family: 'JetBrains Mono'; font-weight: 900; font-size: 2.5rem; color: white; line-height: 1; }

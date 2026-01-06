@@ -208,22 +208,26 @@
 
                 <div class="tab-content" id="tab-content-ref">
                     <div class="ref-grid-tab">
-                        <div class="ref-card-btn">
-                            <span class="ref-icon-large">⛽</span>
-                            <span class="ref-title">FUEL POLICY</span>
+                        <div class="ref-card-btn" onclick="openModal('wb')">
+                             <span class="ref-icon-large">⚖️</span>
+                             <span class="ref-title">WEIGHT & BALANCE</span>
                         </div>
-                        <div class="ref-card-btn">
-                            <span class="ref-icon-large">🌪️</span>
-                            <span class="ref-title">WIND LIMIT</span>
-                        </div>
+
                         <div class="ref-card-btn">
                             <span class="ref-icon-large">❄️</span>
                             <span class="ref-title">COLD WX OPS</span>
                         </div>
-                        <div class="ref-card-btn">
+
+                        <div class="ref-card-btn" onclick="openModal('hold')">
+                            <span class="ref-icon-large">✈️</span>
+                            <span class="ref-title">HOLDING</span>
+                        </div>
+                        
+                        <div class="ref-card-btn" onclick="openModal('converter')">
                             <span class="ref-icon-large">📐</span>
                             <span class="ref-title">CONVERTER</span>
                         </div>
+
                         <div class="ref-card-btn">
                             <span class="ref-icon-large">⚠️</span>
                             <span class="ref-title">MEL / CDL</span>
@@ -342,8 +346,10 @@
     
     <div id="modal-load" class="modal-overlay" onclick="closeModal('load')">
     <div class="modal-card" onclick="event.stopPropagation()">
-        <div class="m-head">SPECIAL LOAD / NOTOC</div>
-        
+        <div class="m-head" style="display:flex; justify-content:space-between; align-items:center;">
+            <span>SPECIAL LOAD / NOTOC</span>
+            <button class="header-clear-btn" onclick="clearLoadData()">CLEAR</button>
+        </div>
         <div style="overflow-y:auto; padding-right:5px; flex:1;">
             <div class="sec-header" style="margin-top:0">QUANTITY ITEMS</div>
 
@@ -810,6 +816,304 @@
     <div class="restart-hint">Tap Screen to Start New Day</div>
 </div>
 
+<div id="modal-wb" class="modal-overlay" onclick="closeModal('wb')">
+    <div class="wb-card" onclick="event.stopPropagation()">
+        <div class="m-head">
+            <span>WEIGHT & BALANCE</span>
+            <div class="mode-toggle">
+                <button class="mode-btn active" id="btn-dom" onclick="setWbMode('DOM')">DOM (22K)</button>
+                <button class="mode-btn" id="btn-int" onclick="setWbMode('INT')">INT (27K)</button>
+            </div>
+            <button class="m-close-small" onclick="closeModal('wb')">×</button>
+        </div>
+
+        <div class="wb-layout">
+            <div class="col-left">
+                <div class="sec-label" style="color:#22c55e;">FUEL</div>
+                <div class="input-row">
+                    <div class="input-group-styled fuel-style" onclick="openWbNumpad('wb-ramp')">
+                        <span class="fixed-unit">RAMP (T)</span>
+                        <input type="text" id="wb-ramp" class="clean-input" value="16.0" readonly>
+                    </div>
+                    <div style="flex:1;"></div>
+                </div>
+
+                <div class="sec-label" style="color:#94a3b8;">TAKEOFF (TO)</div>
+                <div class="input-row">
+                    <div class="input-group-styled" onclick="openWbNumpad('wb-gw')">
+                        <span class="fixed-unit">ATXW (T)</span>
+                        <input type="text" id="wb-gw" class="clean-input" value="156.0" readonly>
+                    </div>
+                    <div class="input-group-styled" onclick="openWbNumpad('wb-cg')">
+                        <span class="fixed-unit">CG%</span>
+                        <input type="text" id="wb-cg" class="clean-input" value="26.2" readonly>
+                    </div>
+                </div>
+
+                <div class="sec-label" style="color:#f59e0b;">LANDING (LDG)</div>
+                <div class="input-row">
+                    <div class="input-group-styled ldg-style" onclick="openWbNumpad('wb-gw-ldg')">
+                        <span class="fixed-unit" style="color:#f59e0b;">GW (T)</span>
+                        <input type="text" id="wb-gw-ldg" class="clean-input" value="130.0" readonly>
+                    </div>
+                    <div class="input-group-styled ldg-style" onclick="openWbNumpad('wb-cg-ldg')">
+                        <span class="fixed-unit" style="color:#f59e0b;">CG%</span>
+                        <input type="text" id="wb-cg-ldg" class="clean-input" value="25.0" readonly>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="cg-chart" width="420" height="240"></canvas>
+                    <div class="thrust-badge" id="thrust-badge">THRUST: 22K</div>
+                </div>
+            </div>
+
+            <div class="col-right">
+                <div class="limit-card active-card" id="card-to">
+                    <div class="lc-title">MAX TAKEOFF WEIGHT</div>
+                    <div class="lc-row">
+                        <span class="lc-label">MTOW</span>
+                        <span class="lc-val" id="limit-to">149.9</span>
+                    </div>
+                    <div class="lc-row">
+                        <span class="lc-label">ATXW</span>
+                        <span class="lc-val" id="disp-gw-to">145.5</span>
+                    </div>
+                    <div class="lc-bar-bg"><div class="lc-bar-fill" id="bar-to" style="width: 0%;"></div></div>
+                    <div class="lc-margin-row">
+                        <span>MARGIN</span>
+                        <span id="margin-to">--</span>
+                    </div>
+                    
+                    <div id="burn-alert" class="burn-alert">
+                        <div style="font-size:0.7rem; opacity:0.8;">MIN BURN</div>
+                        <div id="burn-val">0.0 T</div>
+                        <div style="border-top:1px solid rgba(239,68,68,0.3); margin:5px 0;"></div>
+                        <div style="font-size:0.7rem; opacity:0.8; color:#f59e0b;">TARGET TOF</div>
+                        <span id="tof-val" class="tof-highlight">--</span>
+                    </div>
+                </div>
+
+                <div class="limit-card active-card" id="card-ldg" style="border-color: rgba(245, 158, 11, 0.3);">
+                    <div class="lc-title" style="color:#f59e0b;">MAX LANDING WEIGHT</div>
+                    <div class="lc-row">
+                        <span class="lc-label">MLDW</span>
+                        <span class="lc-val" id="limit-ldg">144.0</span>
+                    </div>
+                    <div class="lc-row">
+                        <span class="lc-label">ACTUAL</span>
+                        <span class="lc-val" id="disp-gw-ldg">130.0</span>
+                    </div>
+                    <div class="lc-bar-bg"><div class="lc-bar-fill" id="bar-ldg" style="width: 0%; background:#f59e0b;"></div></div>
+                    <div class="lc-margin-row">
+                        <span>MARGIN</span>
+                        <span id="margin-ldg">--</span>
+                    </div>
+                </div>
+
+                <div class="limit-card active-card" id="card-zfw">
+                     <div class="lc-title" style="color:#94a3b8;">MAX ZERO FUEL</div>
+                     <div class="lc-row">
+                        <span class="lc-label">LIMIT</span>
+                        <span class="lc-val" id="limit-zfw">136.0</span>
+                     </div>
+                </div>
+
+                <div id="cg-status-box">WITHIN LIMITS</div>
+            </div>
+        </div>
+        
+        <button class="btn-close" style="margin-top:15px;" onclick="closeModal('wb')">CLOSE</button>
+    </div>
+</div>
+
+<div id="modal-wb-numpad" class="modal-overlay" onclick="closeWbNumpad()">
+    <div class="numpad-card" onclick="event.stopPropagation()">
+        <div class="np-header">
+            <span id="wb-np-label">INPUT VALUE</span>
+            <span id="wb-np-val"></span>
+        </div>
+        <div class="np-grid">
+            <button onclick="wbNpInput('7')">7</button><button onclick="wbNpInput('8')">8</button><button onclick="wbNpInput('9')">9</button>
+            <button onclick="wbNpInput('4')">4</button><button onclick="wbNpInput('5')">5</button><button onclick="wbNpInput('6')">6</button>
+            <button onclick="wbNpInput('1')">1</button><button onclick="wbNpInput('2')">2</button><button onclick="wbNpInput('3')">3</button>
+            
+            <button onclick="wbNpInput('.')" style="font-size:1.5rem; padding-bottom:10px;">.</button>
+            <button onclick="wbNpInput('0')">0</button>
+            <button onclick="wbNpClear()" class="del" style="color:#f59e0b !important;">C</button>
+            
+            <button onclick="wbNpBack()" class="del">⌫</button>
+            <button onclick="wbNpConfirm()" class="np-ok" style="grid-column: span 2;">ENTER</button>
+        </div>
+    </div>
+</div>
+
+<div id="modal-hold" class="modal-overlay" onclick="closeModal('hold')">
+    <div class="modal-card" style="padding:0; overflow:hidden;" onclick="event.stopPropagation()">
+        
+        <div class="hold-header">
+            <div class="hold-title">HOLDING REFERENCE</div>
+            <div class="hold-subtitle">JAPAN SPECIFIC RULES</div>
+            <button class="m-close-small" style="position:absolute; right:15px; top:15px;" onclick="closeModal('hold')">×</button>
+        </div>
+
+        <div class="hold-tabs">
+            <button id="tab-hold-st" class="hold-tab active" onclick="holdUpdate('station')">NAV STATION</button>
+            <button id="tab-hold-dme" class="hold-tab" onclick="holdUpdate('dme')">DME DISTANCE</button>
+        </div>
+
+        <div style="overflow-y:auto; flex:1;">
+            
+            <div class="hold-section">
+                <span class="hold-sec-title">MAXIMUM SPEED (IAS)</span>
+                <div class="hold-spd-row" style="border-left-color: var(--green);">
+                    <span class="hold-spd-alt">MHA - 6,000ft</span>
+                    <span id="hold-v1" class="hold-spd-val">210 KT</span>
+                </div>
+                <div class="hold-spd-row" style="border-left-color: var(--cyan);">
+                    <span class="hold-spd-alt">6,001 - 14,000ft</span>
+                    <span id="hold-v2" class="hold-spd-val">220 KT</span>
+                </div>
+                <div class="hold-spd-row" style="border-left-color: var(--purple);">
+                    <span class="hold-spd-alt">ABOVE 14,000ft</span>
+                    <span id="hold-v3" class="hold-spd-val">240 KT</span>
+                </div>
+            </div>
+
+            <div class="hold-section">
+                <div class="hold-grid-2">
+                    <div id="view-hold-st" class="hold-grid-2" style="grid-column: span 2;">
+                        <div class="hold-info-box">
+                            <span class="hold-info-label">TIME (≤14000)</span>
+                            <span class="hold-info-val" style="color:var(--green)">1.0 MIN</span>
+                        </div>
+                        <div class="hold-info-box">
+                            <span class="hold-info-label">TIME (>14000)</span>
+                            <span class="hold-info-val" style="color:var(--green)">1.5 MIN</span>
+                        </div>
+                    </div>
+
+                    <div id="view-hold-dme" class="hold-calc-container hidden">
+                        <span class="hold-sec-title" style="color: var(--cyan); margin-bottom: 8px;">DME LEG CALCULATOR</span>
+                        <div class="hold-calc-row">
+                            <div class="hold-calc-group">
+                                <label>INBD FIX</label>
+                                <input type="number" id="in-dme" placeholder="0.0" step="0.1" oninput="holdCalcLeg()">
+                            </div>
+                            <div class="hold-calc-group">
+                                <label>OUTBD FIX</label>
+                                <input type="number" id="out-dme" placeholder="0.0" step="0.1" oninput="holdCalcLeg()">
+                            </div>
+                        </div>
+                        <div class="hold-res-display">
+                            <span id="res-hold-dist" class="hold-res-val">0.0 NM</span>
+                            <button class="hold-reset-btn" onclick="holdResetCalc()">Reset</button>
+                        </div>
+                    </div>
+
+                    <div class="hold-info-box hold-turb-box">
+                        <span class="hold-info-label" style="color: var(--amber);">TURBULENT SPEED LIMIT</span>
+                        <span class="hold-info-val hold-turb-val">280 KT / M 0.8</span>
+                        <span style="font-size: 0.5rem; color: var(--muted);">(Lesser of)</span>
+                    </div>
+                    <div class="hold-info-box" style="grid-column: span 2;">
+                        <span class="hold-info-label">BANK ANGLE (LESSER OF)</span>
+                        <span class="hold-info-val">25° / 3° SEC</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="hold-section" style="border:none; background: rgba(15, 23, 42, 0.8);">
+                <span class="hold-sec-title">GENERAL RULES</span>
+                <ul class="hold-rule-list">
+                    <li class="hold-rule-item">指示がない場合はR-TURN</li>
+                    <li class="hold-rule-item">HOLDING指示で速度調整CANCEL(減速可)</li>
+                    <li class="hold-rule-item">FIX 5分前までにCLR発出 / 3分前までに減速完了</li>
+                </ul>
+                <div class="hold-rule-important">
+                    <span>⚠️</span> EXITの際 MEA注意
+                </div>
+            </div>
+
+        </div>
+        <button class="m-close" onclick="closeModal('hold')" style="border-radius:0; margin:0;">CLOSE</button>
+    </div>
+</div>
+
+<div id="modal-converter" class="modal-overlay" onclick="closeModal('converter')">
+    <div class="modal-card" style="width: 500px;" onclick="event.stopPropagation()">
+        <div class="m-head">SPD / MACH CONVERTER</div>
+
+        <div class="conv-container">
+           <div class="conv-section">
+    <span class="conv-label">ALTITUDE (FL)</span>
+    <div class="conv-input-row">
+        <button class="conv-step-btn" onclick="adjConvAlt(-10)">-10</button>
+        <div class="input-group-styled" style="flex:1" onclick="openConvNumpad('conv-alt')">
+    <span class="fixed-unit" style="margin-right:5px; margin-left:0; color:var(--primary);">FL</span>
+    
+    <input type="text" id="conv-alt" class="clean-input" value="300" readonly>
+</div>
+        <button class="conv-step-btn" onclick="adjConvAlt(10)">+10</button>
+    </div>
+    
+    <div class="conv-sub-info">
+        <span>SAT: <span id="conv-sat" style="color:var(--cyan)">--</span>°C</span>
+        <span>SOUND: <span id="conv-sound" style="color:var(--muted)">--</span> KT</span>
+    </div>
+    </div>
+            <div class="conv-divider"></div>
+
+            <div class="conv-grid">
+                <div class="conv-col">
+                    <span class="conv-label">CAS (IAS)</span>
+                    <div class="input-group-styled conv-active-input" onclick="openConvNumpad('conv-ias')">
+    <input type="text" id="conv-ias" class="clean-input" value="280" style="color:var(--green)" readonly>
+    <span class="fixed-unit">KT</span>
+</div>
+                </div>
+
+                <div class="conv-arrow">⇄</div>
+
+                <div class="conv-col">
+                    <span class="conv-label">MACH</span>
+                    <div class="input-group-styled conv-active-input" onclick="openConvNumpad('conv-mach')">
+    <span style="font-weight:900; color:var(--cyan); margin-right:2px;">M</span>
+    <input type="text" id="conv-mach" class="clean-input" value="0.74" style="color:var(--cyan)" readonly>
+</div>
+                </div>
+            </div>
+
+            <div class="conv-result-box">
+                <span class="conv-res-label">TRUE AIRSPEED</span>
+                <div class="conv-res-val"><span id="conv-tas">---</span> <span style="font-size:1rem; color:#94a3b8;">KT</span></div>
+            </div>
+        </div>
+
+        <button class="m-close" onclick="closeModal('converter')">CLOSE</button>
+    </div>
+</div>
+
+<div id="modal-conv-numpad" class="modal-overlay" onclick="closeConvNumpad()">
+    <div class="numpad-card" onclick="event.stopPropagation()">
+        <div class="np-header">
+            <span id="conv-np-label">INPUT VALUE</span>
+            <span id="conv-np-val"></span>
+        </div>
+        <div class="np-grid">
+            <button onclick="convNpInput('7')">7</button><button onclick="convNpInput('8')">8</button><button onclick="convNpInput('9')">9</button>
+            <button onclick="convNpInput('4')">4</button><button onclick="convNpInput('5')">5</button><button onclick="convNpInput('6')">6</button>
+            <button onclick="convNpInput('1')">1</button><button onclick="convNpInput('2')">2</button><button onclick="convNpInput('3')">3</button>
+            
+            <button onclick="convNpInput('.')">.</button>
+            <button onclick="convNpInput('0')">0</button>
+            <button onclick="convNpClear()" class="del" style="color:#f59e0b !important;">C</button>
+            
+            <button onclick="convNpBack()" class="del">⌫</button>
+            <button onclick="convNpConfirm()" class="np-ok" style="grid-column: span 2;">ENTER</button>
+        </div>
+    </div>
+</div>
 
 </body>
 </html>

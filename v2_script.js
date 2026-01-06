@@ -490,57 +490,60 @@ function inputWxStation() {
     }
 }
 
-// === WX API FETCH LOGIC (NOAA / Key-less Version) ===
+// === WX API FETCH LOGIC (CheckWX Version) ===
 
 async function fetchWxData(icao) {
     if (!icao || icao === "----") return;
 
     // UIを読み込み中に更新
-    setTxt('wx-content-metar', "LOADING (NOAA)...");
-    setTxt('wx-content-taf', "LOADING (NOAA)...");
+    setTxt('wx-content-metar', "LOADING (CheckWX)...");
+    setTxt('wx-content-taf', "LOADING (CheckWX)...");
+
+    // CheckWX用のヘッダー準備
+    const headers = { "X-API-Key": WX_API_KEY };
 
     try {
-        // --- METAR (AviationWeather.gov) ---
-        // cache-busterとして時間を付与してキャッシュ回避
-        const metarUrl = `https://aviationweather.gov/api/data/metar?ids=${icao}&format=json&hours=0&_=${Date.now()}`;
-        const resMetar = await fetch(metarUrl);
+        // --- METAR ---
+        const metarUrl = `https://api.checkwx.com/metar/${icao}/decoded`;
+        const resMetar = await fetch(metarUrl, { headers: headers });
         
         if (!resMetar.ok) throw new Error(`METAR Error: ${resMetar.status}`);
         
         const jsonMetar = await resMetar.json();
         
-        // NOAAは配列で返してくる。rawOb または raw_text というフィールドに入っていることが多い
-        if (jsonMetar && jsonMetar.length > 0) {
-            // rawObプロパティがあればそれを使う
-            setTxt('wx-content-metar', jsonMetar[0].rawOb || jsonMetar[0].raw_text || "NO RAW DATA");
+        if (jsonMetar && jsonMetar.data && jsonMetar.data.length > 0) {
+            // CheckWXは decoded データも持っていますが、ここでは原文(raw_text)を表示
+            // データ構造: jsonMetar.data[0].raw_text
+            // ※ decoded版を使いたい場合は jsonMetar.data[0] の中身を整形する必要があります
+            const metarData = jsonMetar.data[0];
+            setTxt('wx-content-metar', metarData.raw_text || metarData);
         } else {
-            setTxt('wx-content-metar', "NO DATA (NOAA)");
+            setTxt('wx-content-metar', "NO DATA (CheckWX)");
         }
 
-        // --- TAF (AviationWeather.gov) ---
-        const tafUrl = `https://aviationweather.gov/api/data/taf?ids=${icao}&format=json&_=${Date.now()}`;
-        const resTaf = await fetch(tafUrl);
+        // --- TAF ---
+        const tafUrl = `https://api.checkwx.com/taf/${icao}/decoded`;
+        const resTaf = await fetch(tafUrl, { headers: headers });
         
         if (!resTaf.ok) {
             console.warn(`TAF Error: ${resTaf.status}`);
             setTxt('wx-content-taf', "TAF FETCH ERROR");
         } else {
             const jsonTaf = await resTaf.json();
-            if (jsonTaf && jsonTaf.length > 0) {
-                setTxt('wx-content-taf', jsonTaf[0].rawTAF || jsonTaf[0].raw_text || "NO RAW DATA");
+            if (jsonTaf && jsonTaf.data && jsonTaf.data.length > 0) {
+                const tafData = jsonTaf.data[0];
+                setTxt('wx-content-taf', tafData.raw_text || tafData);
             } else {
-                setTxt('wx-content-taf', "NO DATA (NOAA)");
+                setTxt('wx-content-taf', "NO DATA (CheckWX)");
             }
         }
 
     } catch (error) {
         console.error("WX Fetch Error:", error);
         
-        // エラー表示の切り分け
         let msg = "NETWORK ERROR";
         if (error.message.includes("Failed to fetch")) {
-            // CORSエラーの可能性が高い
-            msg = "CORS ERROR (Use Live Server)";
+            msg = "CORS/KEY ERROR";
         }
         
         setTxt('wx-content-metar', msg);
@@ -1028,6 +1031,52 @@ const PERF_AIRPORT_DB = {
     "ROMY": { name: "MIYAKO", elevation: 142, runways: { "04": {hdg:42,len:2000,lda:2000,slope:0}, "22": {hdg:222,len:2000,lda:2000,slope:0} } }
 };
 
+// === VREF TABLE DATA (Based on provided image) ===
+// 重量(w)は降順、各FlapごとのVREF速度を定義
+const VREF_TABLE = [
+    { w: 180, f40: 155, f30: 158 },
+    { w: 170, f40: 150, f30: 153 },
+    { w: 160, f40: 145, f30: 148 },
+    { w: 150, f40: 140, f30: 143 },
+    { w: 140, f40: 136, f30: 139 },
+    { w: 130, f40: 131, f30: 134 },
+    { w: 120, f40: 125, f30: 128 },
+    { w: 110, f40: 119, f30: 123 },
+    { w: 100, f40: 113, f30: 117 },
+    { w: 90,  f40: 107, f30: 111 }
+];
+
+// VREF計算関数（線形補間ロジック）
+function getVrefFromTable(weight, flap) {
+    // 範囲外のクランプ処理（データ範囲外は上限/下限値を使う）
+    if (weight >= 180) {
+        const d = VREF_TABLE[0];
+        return (flap === 40) ? d.f40 : d.f30;
+    }
+    if (weight <= 90) {
+        const d = VREF_TABLE[VREF_TABLE.length - 1];
+        return (flap === 40) ? d.f40 : d.f30;
+    }
+
+    // 補間計算
+    for (let i = 0; i < VREF_TABLE.length - 1; i++) {
+        const upper = VREF_TABLE[i];     // 上側のデータ (例: 140)
+        const lower = VREF_TABLE[i + 1]; // 下側のデータ (例: 130)
+
+        // 重量がこの区間にあれば補間する
+        if (weight <= upper.w && weight >= lower.w) {
+            const ratio = (weight - lower.w) / (upper.w - lower.w);
+            
+            const upVal = (flap === 40) ? upper.f40 : upper.f30;
+            const lowVal = (flap === 40) ? lower.f40 : lower.f30;
+
+            return lowVal + (upVal - lowVal) * ratio;
+        }
+    }
+    return 0; // Fallback
+}
+
+
 const QRH_DATA = {
     6: { 30: { 4: { b:4740, w:32, a:140, h:150, t:530, su:0, sd:0, nr:10, sp:210 }, 3: { b:6400, w:45, a:220, h:250, t:890, su:0, sd:0, nr:0, sp:350 }, 2: { b:7960, w:53, a:310, h:360, t:1230, su:-120, sd:90, nr:160, sp:350 }, 1: { b:8720, w:53, a:370, h:410, t:1450, su:-230, sd:210, nr:890, sp:320 } } },
     5: { 30: { 4: { b:5390, w:35, a:180, h:220, t:760, su:-90, sd:100, nr:510, sp:210 }, 3: { b:6410, w:47, a:230, h:250, t:900, su:-10, sd:30, nr:50, sp:350 }, 2: { b:7960, w:53, a:310, h:360, t:1230, su:-120, sd:90, nr:160, sp:350 }, 1: { b:8720, w:53, a:370, h:410, t:1450, su:-230, sd:210, nr:890, sp:320 } } },
@@ -1119,10 +1168,15 @@ function perfUpdateXWindWarn() {
 
 function perfCalc() {
     const ldw = parseFloat(document.getElementById('perf-in-ldw').value) || 130.0;
-    let vref = 142 + ((ldw - 132.0) / 2.0);
-    if(perfFlap === 40) vref -= 4;
+    // 以前の簡易計算式を削除し、テーブル参照関数を使用
+    let vref = getVrefFromTable(ldw, perfFlap);
+    
+    // Flap 40以外の補正はテーブルに含まれているため、一律-4ktなどの処理は不要
+    // 単純に計算されたVREFにADDを足す
+    // --- 【修正ここまで】 ---
 
     // データ参照 (簡易ロジック: CC 6, Flap 30 以外は近似値やフォールバック)
+    // ※ QRH_DATAのロジックは既存のままでOKであればそのまま
     const dataSet = (QRH_DATA[perfCC] && QRH_DATA[perfCC][30] && QRH_DATA[perfCC][30][perfBrake]) 
         ? QRH_DATA[perfCC][30][perfBrake] 
         : QRH_DATA[6][30][3];
@@ -1143,6 +1197,8 @@ function perfCalc() {
     if(perfFlap === 40) dist -= 180;
 
     dist = Math.round(dist);
+    
+    // VAPP表示 (四捨五入して整数表示)
     document.getElementById('perf-out-vapp').innerText = Math.round(vref + perfAdd);
     document.getElementById('perf-out-dist').innerText = dist;
     
@@ -1600,6 +1656,20 @@ function openModal(id) {
                 refreshTfc();
             }
             break;
+        
+        // ▼▼▼ これを追加してください ▼▼▼
+        case 'wb':
+            if (typeof initWb === 'function') initWb();
+            break;
+        // ▲▲▲ 追加ここまで ▲▲▲
+
+        case 'hold':
+            if (typeof initHold === 'function') initHold();
+            break;
+
+        case 'converter':
+            if (typeof initConverter === 'function') initConverter();
+            break;    
 
         case 'calc-wind':
             // Wind Calc: 必要であればリセット処理などをここに追加
@@ -1781,6 +1851,43 @@ function closeModalLoad() { // closeModal('load') から呼ばれる想定
     if (hasAnyLoad) l.loadAlerts.acars = true;
     
     updateLoadButtonState();
+}
+
+// === SPECIAL LOAD CLEAR LOGIC ===
+function clearLoadData() {
+    // 誤操作防止のアラート
+    if (!confirm("Clear all Special Load data?")) return;
+
+    const l = state.legs[state.idx];
+    
+    // 1. データのリセット
+    l.load = { 
+        dry: 0, dryMode: 'DOM', 
+        mag: 0, magPos: [], 
+        ti: 0, radioPos: [], 
+        beadsFwd: 0, beadsAft: 0, 
+        codes: [] 
+    };
+    l.loadAlerts = { ca: false, acars: false }; // アラート状態もクリア
+
+    // 2. UI入力欄のクリア
+    const inputs = ['in-dry', 'in-mag', 'in-radio-ti', 'in-beads-fwd', 'in-beads-aft'];
+    inputs.forEach(id => {
+        const el = document.getElementById(id);
+        if(el) el.value = "";
+    });
+
+    // 3. UIボタン/トグルのリセット
+    setLoadDryMode('DOM'); // DRYモードをDOMに戻す
+    
+    // 位置ボタン(F1, F2...)の選択解除
+    document.querySelectorAll('#modal-load .pos-btn').forEach(b => b.classList.remove('active'));
+    
+    // リストボタン(RFL, AVI...)の選択解除
+    document.querySelectorAll('#modal-load .list-btn').forEach(b => b.classList.remove('active'));
+
+    // 4. バリデーションを実行してメイン画面のステータスを更新
+    validateLoad();
 }
 
 function ackLoadAlert(e, type) {
@@ -1977,3 +2084,492 @@ function resetSystem() {
         location.reload(); // シンプルにリロードしてリセット
     }
 }
+
+/* ============================================================
+   MODULE: WEIGHT & BALANCE (INTEGRATED)
+   ============================================================ */
+
+let wbMode = "DOM"; 
+let wbNpKey = "";
+let wbNpVal = "";
+
+const WB_LIMITS = {
+    DOM: { MTOW: 149.9, MLDW: 144.0, MZFW: 136.0, thrust: "22K" },
+    INT: { MTOW: 174.1, MLDW: 146.3, MZFW: 138.3, thrust: "27K" }
+};
+
+const WB_THRUST_LINES = {
+    DOM: [ { wt: 80800, cg: 26.2 }, { wt: 155500, cg: 34.9 } ], 
+    INT: [ { wt: 80800, cg: 25.0 }, { wt: 155500, cg: 34.9 } ] 
+};
+
+const WB_CHART_CFG = { minCG: 0, maxCG: 40, minWt: 70000, maxWt: 180000, padding: 30 };
+
+// モーダルを開いた時に呼び出される初期化関数
+function initWb() {
+    renderWbChart();
+}
+
+// 統合版 openModal で呼び出し分岐を追加してください
+/* 既存の openModal 関数内の switch 文に以下を追加してください：
+   case 'wb':
+       initWb();
+       break;
+*/
+
+function setWbMode(mode) {
+    wbMode = mode;
+    document.getElementById('btn-dom').className = `mode-btn ${mode==='DOM'?'active':''}`;
+    document.getElementById('btn-int').className = `mode-btn ${mode==='INT'?'active':''}`;
+    renderWbChart();
+}
+
+function renderWbChart() {
+    const canvas = document.getElementById('cg-chart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.width;
+    const H = canvas.height;
+
+    const limits = WB_LIMITS[wbMode];
+    const envelope = getWbEnvelope(wbMode);
+    const thrustLine = WB_THRUST_LINES[wbMode];
+    
+    document.getElementById('thrust-badge').innerText = `THRUST: ${limits.thrust} (${wbMode})`;
+    document.getElementById('limit-to').innerText = limits.MTOW.toFixed(1);
+    document.getElementById('limit-ldg').innerText = limits.MLDW.toFixed(1);
+    document.getElementById('limit-zfw').innerText = limits.MZFW.toFixed(1);
+
+    const rawRamp = parseFloat(document.getElementById('wb-ramp').value) || 0;
+    const rawGwTo = parseFloat(document.getElementById('wb-gw').value) || 0;
+    const gwTo = rawGwTo * 1000; 
+    const cgTo = parseFloat(document.getElementById('wb-cg').value) || 0;
+    const rawGwLdg = parseFloat(document.getElementById('wb-gw-ldg').value) || 0;
+    const gwLdg = rawGwLdg * 1000; 
+    const cgLdg = parseFloat(document.getElementById('wb-cg-ldg').value) || 0;
+
+    ctx.clearRect(0, 0, W, H);
+    drawWbGrid(ctx, W, H);
+    
+    const envColor = "rgba(59, 130, 246, 0.1)";
+    const envStroke = "#3b82f6";
+    drawWbEnvelope(ctx, W, H, envelope, envColor, envStroke);
+    drawWbThrustLine(ctx, W, H, thrustLine, limits.thrust);
+
+    const isToOk = plotWbPoint(ctx, W, H, gwTo, cgTo, "#22c55e", "TO", thrustLine, true, envelope);
+    const isLdgOk = plotWbPoint(ctx, W, H, gwLdg, cgLdg, "#f59e0b", "LDG", thrustLine, false, envelope);
+
+    updateWbBars(rawGwTo, rawGwLdg, isToOk, isLdgOk, limits, rawRamp);
+}
+
+function getWbEnvelope(mode) {
+    if (mode === 'DOM') {
+        return [
+            { wt: 80800,  fwd: 6.0,  aft: 31.5 },
+            { wt: 105000, fwd: 5.6,  aft: 36.0 }, 
+            { wt: 138500, fwd: 5.0,  aft: 35.3 }, 
+            { wt: 143425, fwd: 6.0,  aft: 35.2 },
+            { wt: 149900, fwd: 8.4,  aft: 35.0 } 
+        ];
+    } else {
+        return [
+            { wt: 80800,  fwd: 6.0,  aft: 31.5 },
+            { wt: 105000, fwd: 5.6,  aft: 36.0 }, 
+            { wt: 138500, fwd: 5.0,  aft: 35.3 }, 
+            { wt: 143425, fwd: 6.0,  aft: 35.2 }, 
+            { wt: 155500, fwd: 8.6,  aft: 34.9 }, 
+            { wt: 174100, fwd: 8.6,  aft: 34.9 }  
+        ];
+    }
+}
+
+function updateWbBars(gwTo, gwLdg, isToOk, isLdgOk, limits, rampFuel) {
+    updateSingleWbBar('to', gwTo, limits.MTOW, isToOk, rampFuel);
+    updateSingleWbBar('ldg', gwLdg, limits.MLDW, isLdgOk, 0);
+
+    const statusBox = document.getElementById('cg-status-box');
+    if(isToOk && isLdgOk) {
+        statusBox.innerText = "WITHIN LIMITS";
+        statusBox.style.borderColor = "var(--success)";
+        statusBox.style.color = "var(--success)";
+        statusBox.style.background = "rgba(34, 197, 94, 0.1)";
+    } else {
+        statusBox.innerText = "LIMIT EXCEEDED";
+        statusBox.style.borderColor = "var(--danger)";
+        statusBox.style.color = "var(--danger)";
+        statusBox.style.background = "rgba(239, 68, 68, 0.1)";
+    }
+}
+
+function updateSingleWbBar(type, actual, limit, isChartOk, rampFuel) {
+    const bar = document.getElementById(`bar-${type}`);
+    const marginEl = document.getElementById(`margin-${type}`);
+    const dispEl = document.getElementById(`disp-gw-${type}`);
+    
+    if(dispEl) dispEl.innerText = actual.toFixed(1);
+
+    const margin = limit - actual;
+    const pct = Math.min((actual / limit) * 100, 100);
+
+    bar.style.width = pct + "%";
+    if (margin < 0 || !isChartOk) bar.style.background = "#ef4444";
+    else bar.style.background = type==='to' ? "#22c55e" : "#f59e0b";
+
+    const sign = margin >= 0 ? "+" : "";
+    marginEl.innerText = `${sign}${margin.toFixed(1)} T`;
+    marginEl.style.color = margin >= 0 ? "var(--success)" : "var(--danger)";
+
+    if (type === 'to') {
+        const burnAlert = document.getElementById('burn-alert');
+        const burnVal = document.getElementById('burn-val');
+        const tofVal = document.getElementById('tof-val');
+        
+        if (margin < 0) {
+            const neededBurn = Math.abs(margin); 
+            const maxTof = rampFuel - neededBurn; 
+            
+            burnVal.innerText = `${neededBurn.toFixed(1)} T`;
+            tofVal.innerText = `${maxTof.toFixed(1)} T`;
+            
+            burnAlert.style.display = 'block';
+        } else {
+            burnAlert.style.display = 'none';
+        }
+    }
+}
+
+function mapWbX(cg, W) { return WB_CHART_CFG.padding + (cg - WB_CHART_CFG.minCG) * ((W - WB_CHART_CFG.padding*2) / (WB_CHART_CFG.maxCG - WB_CHART_CFG.minCG)); }
+function mapWbY(wt, H) { return (H - WB_CHART_CFG.padding) - (wt - WB_CHART_CFG.minWt) * ((H - WB_CHART_CFG.padding*2) / (WB_CHART_CFG.maxWt - WB_CHART_CFG.minWt)); }
+
+function drawWbGrid(ctx, W, H) {
+    ctx.strokeStyle = '#334155'; ctx.lineWidth = 1; ctx.font = "10px Inter"; ctx.fillStyle = "#94a3b8"; ctx.textAlign = "center";
+    for(let c=0; c<=40; c+=5) {
+        let x = mapWbX(c, W); ctx.beginPath(); ctx.moveTo(x, WB_CHART_CFG.padding); ctx.lineTo(x, H-WB_CHART_CFG.padding); ctx.stroke();
+        ctx.fillText(c+"%", x, H-10);
+    }
+    ctx.textAlign="right";
+    for(let w=70000; w<=180000; w+=20000) {
+        let y = mapWbY(w, H); ctx.beginPath(); ctx.moveTo(WB_CHART_CFG.padding, y); ctx.lineTo(W-WB_CHART_CFG.padding, y); ctx.stroke();
+        ctx.fillText((w/1000)+"T", WB_CHART_CFG.padding-5, y+3);
+    }
+}
+
+function drawWbEnvelope(ctx, W, H, pts, fill, stroke) {
+    ctx.beginPath(); ctx.strokeStyle=stroke; ctx.lineWidth=2; ctx.fillStyle=fill;
+    pts.forEach((p,i)=> { let x=mapWbX(p.fwd,W), y=mapWbY(p.wt,H); if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y); });
+    [...pts].reverse().forEach(p=>{ ctx.lineTo(mapWbX(p.aft,W), mapWbY(p.wt,H)); });
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+}
+
+function drawWbThrustLine(ctx, W, H, pts, label) {
+    ctx.beginPath(); ctx.strokeStyle="#ef4444"; ctx.lineWidth=1; ctx.setLineDash([5,3]);
+    pts.forEach((p,i)=>{ let x=mapWbX(p.cg,W), y=mapWbY(p.wt,H); if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y); });
+    ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle="#ef4444"; ctx.textAlign="left";
+    ctx.fillText(`THRUST LIM (${label})`, mapWbX(pts[0].cg,W)+5, mapWbY(pts[0].wt,H)-10);
+}
+
+function plotWbPoint(ctx, W, H, gw, cg, color, label, thrustPts, isTakeoff, envelope) {
+    const x = mapWbX(cg, W), y = mapWbY(gw, H);
+    let isOk = true;
+    if(!checkWbEnvelope(gw, cg, envelope)) isOk = false;
+    if(isTakeoff && isOk) {
+        const p1 = thrustPts[0], p2 = thrustPts[1];
+        if(gw >= p1.wt && gw <= p2.wt) {
+            const r = (gw-p1.wt)/(p2.wt-p1.wt);
+            const limCg = p1.cg + (p2.cg-p1.cg)*r;
+            if(cg > limCg) isOk = false;
+        }
+    }
+    const finalColor = isOk ? color : "#ef4444";
+    ctx.beginPath(); ctx.arc(x, y, 5, 0, Math.PI*2); ctx.fillStyle=finalColor; ctx.fill();
+    ctx.strokeStyle="white"; ctx.lineWidth=2; ctx.stroke();
+    ctx.fillStyle=finalColor; ctx.textAlign="left"; ctx.fillText(label, x+8, y+3);
+    return isOk;
+}
+
+function checkWbEnvelope(gw, cg, pts) {
+    if(gw < pts[0].wt || gw > pts[pts.length-1].wt) return false;
+    let lf=0, la=0;
+    for(let i=0; i<pts.length-1; i++) {
+        if(gw>=pts[i].wt && gw<=pts[i+1].wt) {
+            const r = (gw-pts[i].wt)/(pts[i+1].wt-pts[i].wt);
+            lf = pts[i].fwd + (pts[i+1].fwd-pts[i].fwd)*r;
+            la = pts[i].aft + (pts[i+1].aft-pts[i].aft)*r;
+            break;
+        }
+    }
+    return (cg >= lf && cg <= la);
+}
+
+/* === WB DEDICATED NUMPAD LOGIC (Supports Decimals) === */
+function openWbNumpad(k){ 
+    wbNpKey = k; 
+    wbNpVal = ""; // Reset
+    let label = "VALUE";
+    if(k.includes('gw')) label = "WEIGHT (T)";
+    if(k.includes('cg')) label = "CG (%)";
+    if(k.includes('ramp')) label = "RAMP FUEL (T)";
+    document.getElementById('wb-np-label').innerText = label;
+    document.getElementById('wb-np-val').innerText = wbNpVal;
+    
+    document.getElementById('modal-wb-numpad').classList.add('active'); 
+}
+function closeWbNumpad() {
+    document.getElementById('modal-wb-numpad').classList.remove('active');
+}
+
+function wbNpInput(n){ 
+    if(wbNpVal.length < 7) wbNpVal += n; 
+    document.getElementById('wb-np-val').innerText = wbNpVal;
+}
+function wbNpClear(){
+    wbNpVal = "";
+    document.getElementById('wb-np-val').innerText = wbNpVal;
+}
+function wbNpBack(){
+    wbNpVal = wbNpVal.slice(0, -1);
+    document.getElementById('wb-np-val').innerText = wbNpVal;
+}
+function wbNpConfirm(){ 
+    if(wbNpVal!=="") { 
+        let floatVal = parseFloat(wbNpVal);
+        if (!isNaN(floatVal)) {
+             document.getElementById(wbNpKey).value = floatVal.toFixed(1);
+             renderWbChart(); 
+        }
+    }
+    closeWbNumpad();
+}
+
+/* ============================================================
+   MODULE: HOLDING REFERENCE
+   ============================================================ */
+const HOLD_DATA = {
+    station: { v1: "210 KT", v2: "220 KT", v3: "240 KT" },
+    dme:     { v1: "200 KT", v2: "230 KT", v3: "265 KT" }
+};
+
+function initHold() {
+    holdUpdate('station');
+}
+
+function holdUpdate(mode) {
+    const isDme = (mode === 'dme');
+    document.getElementById('tab-hold-st').classList.toggle('active', !isDme);
+    document.getElementById('tab-hold-dme').classList.toggle('active', isDme);
+    
+    const set = HOLD_DATA[mode];
+    document.getElementById('hold-v1').innerText = set.v1;
+    document.getElementById('hold-v2').innerText = set.v2;
+    document.getElementById('hold-v3').innerText = set.v3;
+    
+    document.getElementById('view-hold-st').style.display = isDme ? 'none' : 'grid';
+    const dmeCalc = document.getElementById('view-hold-dme');
+    if (isDme) {
+        dmeCalc.classList.remove('hidden');
+        holdCalcLeg();
+    } else {
+        dmeCalc.classList.add('hidden');
+    }
+}
+
+function holdCalcLeg() {
+    const inVal = document.getElementById('in-dme').value;
+    const outVal = document.getElementById('out-dme').value;
+    const resEl = document.getElementById('res-hold-dist');
+    
+    if (inVal === "" || outVal === "") {
+        resEl.innerText = "0.0 NM";
+        return;
+    }
+    const res = Math.abs(parseFloat(inVal) - parseFloat(outVal));
+    resEl.innerText = res.toFixed(1) + " NM";
+}
+
+function holdResetCalc() {
+    document.getElementById('in-dme').value = "";
+    document.getElementById('out-dme').value = "";
+    document.getElementById('res-hold-dist').innerText = "0.0 NM";
+}
+
+/* ============================================================
+   MODULE: SPD/MACH CONVERTER (AERODYNAMIC MODEL)
+   ============================================================ */
+
+function initConverter() {
+    calcConv('mach'); // 初期計算 (M0.74ベースで計算)
+}
+
+function adjConvAlt(delta) {
+    const el = document.getElementById('conv-alt');
+    let val = parseFloat(el.value) || 0;
+    val += delta;
+    if (val < 0) val = 0;
+    if (val > 600) val = 600; // FL600上限
+    el.value = val;
+    calcConv('maintain');
+}
+
+// ▼▼▼ 修正: 入力値(FL)を Feet に変換して計算 ▼▼▼
+function calcConv(mode = 'maintain') {
+    // 入力値 (FL) を取得
+    const flVal = parseFloat(document.getElementById('conv-alt').value) || 0;
+    // 計算用高度 (ft) = FL * 100
+    const altFt = flVal * 100;
+
+    const inputIas = parseFloat(document.getElementById('conv-ias').value) || 0;
+    const inputMach = parseFloat(document.getElementById('conv-mach').value) || 0;
+
+    // --- 1. Atmosphere Model (ISA Standard) ---
+    // (中略: 計算ロジック自体は変更なし。altFtを使うためそのままでOK)
+    
+    // ... 既存の計算ロジック (atmosphere model code) ...
+    // Tropopause check (approx 36,089ft)
+    let tempK, pressPa;
+    const T0 = 288.15; // Sea Level Temp (K)
+    const P0 = 1013.25; // Sea Level Press (hPa)
+    const L = 0.0019812; // Temp Lapse Rate (K/ft)
+    const H_trop = 36089; 
+
+    if (altFt <= H_trop) {
+        tempK = T0 - (L * altFt);
+        pressPa = P0 * Math.pow((1 - (L * altFt) / T0), 5.25588);
+    } else {
+        const T_trop = T0 - (L * H_trop); 
+        const P_trop = P0 * Math.pow((1 - (L * H_trop) / T0), 5.25588);
+        tempK = T_trop;
+        const R = 287.05; 
+        const g = 9.80665;
+        const h_diff_m = (altFt - H_trop) * 0.3048;
+        pressPa = P_trop * Math.exp((-g * h_diff_m) / (R * T_trop));
+    }
+    const a = 38.9678 * Math.sqrt(tempK);
+
+    // --- 2. Calculation Logic ---
+    const P = pressPa; 
+    const qc0 = 1013.25; 
+    const a0 = 661.47; 
+
+    let finalMach = inputMach;
+    let finalIas = inputIas;
+
+    if (mode === 'maintain') mode = 'mach';
+
+    if (mode === 'ias') {
+        const term1 = 1 + 0.2 * Math.pow(inputIas / a0, 2);
+        const qc = P0 * (Math.pow(term1, 3.5) - 1); 
+        const term2 = (qc / P) + 1;
+        finalMach = Math.sqrt(5 * (Math.pow(term2, 2/7) - 1));
+    } else if (mode === 'mach') {
+        const term1 = 1 + 0.2 * Math.pow(inputMach, 2);
+        const qc = P * (Math.pow(term1, 3.5) - 1);
+        const term2 = (qc / P0) + 1;
+        finalIas = a0 * Math.sqrt(5 * (Math.pow(term2, 2/7) - 1));
+    }
+
+    const tas = finalMach * a;
+
+    // --- 3. Update UI ---
+    if (mode === 'ias') {
+        document.getElementById('conv-mach').value = finalMach.toFixed(3);
+    } else {
+        document.getElementById('conv-ias').value = Math.round(finalIas);
+    }
+    
+    document.getElementById('conv-tas').innerText = Math.round(tas);
+    document.getElementById('conv-sat').innerText = (tempK - 273.15).toFixed(1);
+    document.getElementById('conv-sound').innerText = Math.round(a);
+}
+
+// ▼▼▼ 修正: テンキーのタイトルと桁数制限 ▼▼▼
+
+function openConvNumpad(key) {
+    convNpKey = key;
+    convNpVal = ""; 
+    
+    let label = "VALUE";
+    // ラベル変更
+    if (key === 'conv-alt') label = "ALTITUDE (FL)";
+    if (key === 'conv-ias') label = "CAS (KT)";
+    if (key === 'conv-mach') label = "MACH No.";
+    
+    document.getElementById('conv-np-label').innerText = label;
+    document.getElementById('conv-np-val').innerText = "";
+    
+    document.getElementById('modal-conv-numpad').classList.add('active');
+}
+
+function convNpInput(n) {
+    // 文字数制限ロジック変更
+    let maxLen = 6;
+    if (convNpKey === 'conv-alt') maxLen = 3; // FLは3桁まで
+
+    if (convNpVal.length < maxLen) convNpVal += n;
+    document.getElementById('conv-np-val').innerText = convNpVal;
+}
+
+/* ============================================================
+   MODULE: CONVERTER NUMPAD LOGIC
+   ============================================================ */
+let convNpKey = "";
+let convNpVal = "";
+
+function openConvNumpad(key) {
+    convNpKey = key;
+    convNpVal = ""; // Reset
+    
+    // ラベル設定
+    let label = "VALUE";
+    if (key === 'conv-alt') label = "ALTITUDE (FT)";
+    if (key === 'conv-ias') label = "CAS (KT)";
+    if (key === 'conv-mach') label = "MACH No.";
+    
+    document.getElementById('conv-np-label').innerText = label;
+    document.getElementById('conv-np-val').innerText = "";
+    
+    document.getElementById('modal-conv-numpad').classList.add('active');
+}
+
+function closeConvNumpad() {
+    document.getElementById('modal-conv-numpad').classList.remove('active');
+}
+
+function convNpInput(n) {
+    // 文字数制限 (Machは小数点含め長くても5文字程度、Altは5桁)
+    if (convNpVal.length < 6) convNpVal += n;
+    document.getElementById('conv-np-val').innerText = convNpVal;
+}
+
+function convNpClear() {
+    convNpVal = "";
+    document.getElementById('conv-np-val').innerText = "";
+}
+
+function convNpBack() {
+    convNpVal = convNpVal.slice(0, -1);
+    document.getElementById('conv-np-val').innerText = convNpVal;
+}
+
+function convNpConfirm() {
+    if (convNpVal !== "") {
+        const floatVal = parseFloat(convNpVal);
+        if (!isNaN(floatVal)) {
+            // 値を入力欄にセット
+            document.getElementById(convNpKey).value = convNpVal;
+            
+            // 入力された項目に応じて計算を実行
+            if (convNpKey === 'conv-ias') {
+                calcConv('ias');
+            } else if (convNpKey === 'conv-mach') {
+                calcConv('mach');
+            } else {
+                // Altitude変更時は関係維持で再計算
+                calcConv('maintain');
+            }
+        }
+    }
+    closeConvNumpad();
+}
+
+
