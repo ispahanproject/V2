@@ -71,6 +71,7 @@ let state = {
 };
 
 window.onload = ()=>{ 
+    loadData();
     initTurb(); 
     initCross(); 
     initWindCalc(); // 追加！
@@ -191,6 +192,7 @@ function render() {
             overlay.classList.remove('active');
         }
     }
+    saveData();
 }
 
 
@@ -393,11 +395,13 @@ function selFL(el) {
 function setTurbCause(c) { 
     state.turbCause=c; 
     document.querySelectorAll('.c-btn').forEach(b=>b.classList.toggle('active', b.innerText===c)); 
+    saveData();
 }
 
 function setTurbFreq(f) {
     state.turbFreq=f;
     document.querySelectorAll('.i-btn.freq').forEach(b=>b.classList.toggle('active', b.innerText===f));
+    saveData();
 }
 
 function addTurbLog(int) {
@@ -777,6 +781,7 @@ function stepHdg(amount) {
 function saveLimit(type, val) {
     userLimits[type] = parseInt(val) || 0;
     runCalc();
+    saveData();
 }
 
 function safeCeil(val) {
@@ -1203,6 +1208,8 @@ function perfCalc() {
     document.getElementById('perf-out-dist').innerText = dist;
     
     perfUpdateVisuals(dist);
+
+    saveData();
 }
 
 function perfUpdateVisuals(dist) {
@@ -1438,6 +1445,7 @@ function clearSpData() {
     // 画面を再描画
     renderSpModalContent(); // モーダル内を更新（数値0へ）
     render();               // メイン画面のバッジを更新
+    saveData();
 }
 // モーダル表示用: 現在のレグのデータを反映
 /* --- SPECIAL PAX LOGIC (Integrated) --- */
@@ -1499,6 +1507,7 @@ function modSpIsolated(code, delta) {
     
     const btnSp = document.getElementById('btn-sp-pax');
     if (btnSp) btnSp.classList.toggle('has-data', spTot > 0);
+    saveData();
 }
 
 // 3. openModalの統合（重要：既存の関数を壊さないように）
@@ -1556,6 +1565,7 @@ function checkSpLimits() {
 // メモ更新関数
 function updateSpMemo(val) {
     state.legs[state.idx].spMemo = val;
+    saveData();
 }
 
 // 制限チェックロジック（修正版：エラー時は琥珀色クラスを削除）
@@ -1790,6 +1800,8 @@ function saveLoadDataFromUI() {
     // Codes
     d.codes = [];
     document.querySelectorAll('.list-btn.active').forEach(b => d.codes.push(b.querySelector('.code-box').innerText));
+
+    saveData();
 }
 
 function validateLoad() {
@@ -1851,6 +1863,7 @@ function closeModalLoad() { // closeModal('load') から呼ばれる想定
     if (hasAnyLoad) l.loadAlerts.acars = true;
     
     updateLoadButtonState();
+    saveData();
 }
 
 // === SPECIAL LOAD CLEAR LOGIC ===
@@ -1897,6 +1910,7 @@ function ackLoadAlert(e, type) {
     
     l.loadAlerts[type] = false;
     updateLoadButtonState();
+    saveData();
 }
 
 function updateLoadButtonState() {
@@ -2067,6 +2081,8 @@ function confirmCloseLeg() {
             render(); // 最終レグ完了
         }
     }
+
+    saveData();
 }
 
 function reOpenLeg() {
@@ -2081,7 +2097,8 @@ function resetSystem() {
     if(!endScreen.classList.contains('visible')) return;
     
     if(confirm("Start a new duty? (All data will be reset)")) {
-        location.reload(); // シンプルにリロードしてリセット
+        localStorage.removeItem(STORAGE_KEY); // ★この行を追加（保存データを削除）
+        location.reload(); 
     }
 }
 
@@ -2570,6 +2587,39 @@ function convNpConfirm() {
         }
     }
     closeConvNumpad();
+}
+
+// === DATA PERSISTENCE (AUTO SAVE/LOAD) ===
+const STORAGE_KEY = "copilot_v2_data";
+
+function saveData() {
+    const dataToSave = {
+        state: state,
+        wxOthersCode: wxOthersCode,
+        userLimits: userLimits // Wind Calculatorの設定など
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
+}
+
+function loadData() {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+        try {
+            const data = JSON.parse(saved);
+            if (data.state) {
+                // 既存データとマージして復元
+                state = { ...state, ...data.state };
+                // 配列破損等のガード（念のため）
+                if(!state.legs || state.legs.length === 0) {
+                     state.legs = Array.from({length:4},()=>({/*defaults*/})); 
+                }
+            }
+            if (data.wxOthersCode) wxOthersCode = data.wxOthersCode;
+            if (data.userLimits) userLimits = data.userLimits;
+        } catch (e) {
+            console.error("Data Load Error:", e);
+        }
+    }
 }
 
 
