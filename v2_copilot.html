@@ -213,6 +213,11 @@
                              <span class="ref-title">WEIGHT & BALANCE</span>
                         </div>
 
+                        <div class="ref-card-btn" onclick="openModal('scenario')">
+                              <span class="ref-icon-large">⏱️</span>
+                              <span class="ref-title">SCENARIO<br>COMPARE</span>
+                        </div>
+
                         <div class="ref-card-btn">
                             <span class="ref-icon-large">❄️</span>
                             <span class="ref-title">COLD WX OPS</span>
@@ -235,6 +240,11 @@
                         <div class="ref-card-btn">
                             <span class="ref-icon-large">📞</span>
                             <span class="ref-title">CONTACTS</span>
+                        </div>
+
+                        <div class="ref-card-btn" onclick="openModal('log')">
+                             <span class="ref-icon-large">📓</span>
+                             <span class="ref-title">PERSONAL<br>LOG</span>
                         </div>
                     </div>
                 </div>
@@ -1111,6 +1121,252 @@
             
             <button onclick="convNpBack()" class="del">⌫</button>
             <button onclick="convNpConfirm()" class="np-ok" style="grid-column: span 2;">ENTER</button>
+        </div>
+    </div>
+</div>
+
+
+
+<div id="modal-scenario" class="modal-overlay" onclick="closeModal('scenario')">
+    <div class="modal-card" style="width: 700px;" onclick="event.stopPropagation()">
+        <div class="m-head">
+            SCENARIO ANALYZER
+            <div style="font-size:0.7rem; color:#64748b; font-weight:400; align-self:center;">COST/MIN CALCULATOR</div>
+        </div>
+        
+        <div class="sa-container">
+            <div class="sa-header-row">
+    <div class="sa-input-group" onclick="saOpenNumpad('sa-dist', 'DISTANCE (NM)')">
+        <span class="sa-label">REM DIST (NM)</span>
+        <input type="text" id="sa-dist" class="clean-input" value="400" readonly>
+    </div>
+    <div class="sa-input-group" onclick="saOpenNumpad('sa-wt', 'WEIGHT (1000 LBS)')">
+        <span class="sa-label">WEIGHT (1000 LBS)</span>
+        <input type="text" id="sa-wt" class="clean-input" value="120" readonly>
+    </div>
+</div>
+
+            <div class="sa-grid-compare">
+                <div class="sa-panel base">
+                    <div class="sa-panel-head">FPL (PLAN)</div>
+                    
+                    <div class="sa-input-row">
+                        <span class="sa-row-label">FL</span>
+                        <select id="sa-base-fl" class="clean-select" onchange="calcScenario()">
+                        </select>
+                    </div>
+
+                    <div class="sa-input-row" onclick="saOpenNumpad('sa-base-mach', 'FPL MACH')">
+                        <span class="sa-row-label">MACH</span>
+                        <input type="text" id="sa-base-mach" class="clean-input" value="0.78" readonly>
+                    </div>
+
+                    <div class="sa-input-row" onclick="saOpenNumpad('sa-base-wind', 'FPL WIND (+Tail/-Head)')">
+                        <span class="sa-row-label">WIND</span>
+                        <input type="text" id="sa-base-wind" class="clean-input" value="0" readonly>
+                        <span class="sa-unit">KT</span>
+                    </div>
+
+                    <div class="sa-info-disp">
+                        TAS: <span id="sa-base-tas">---</span> KT / GS: <span id="sa-base-gs">---</span> KT<br>
+                        <span class="sa-temp-val">SAT: <span id="sa-base-temp">--</span>°C</span>
+                        <span class="sa-conv-val" id="sa-base-conv">IAS: --- KT</span>
+                    </div>
+                </div>
+
+                <div class="sa-arrow">▶</div>
+
+                <div class="sa-panel scenario">
+                    <div class="sa-panel-head">SCENARIO (ACTUAL)</div>
+                    
+                    <div class="sa-input-row">
+                        <span class="sa-row-label">FL</span>
+                        <select id="sa-tgt-fl" class="clean-select" onchange="calcScenario()">
+                        </select>
+                    </div>
+
+                    <div class="sa-input-row">
+                        <div style="display:flex; flex-direction:column; gap:2px;">
+                            <span class="sa-row-label">SPD</span>
+                            <div class="mode-toggle-group">
+                                <button id="btn-mode-mach" class="mode-btn active" onclick="setSaMode('mach', event)">MACH</button>
+                                <button id="btn-mode-ias" class="mode-btn" onclick="setSaMode('ias', event)">IAS</button>
+                            </div>
+                        </div>
+                        <input type="text" id="sa-tgt-val" class="clean-input" value="0.78" readonly onclick="openScenarioSpdNumpad()">
+                    </div>
+
+                    <div class="sa-input-row" onclick="saOpenNumpad('sa-tgt-wind', 'SCENARIO WIND')">
+                        <span class="sa-row-label">WIND</span>
+                        <input type="text" id="sa-tgt-wind" class="clean-input" value="0" readonly>
+                        <span class="sa-unit">KT</span>
+                    </div>
+
+                    <div class="sa-info-disp">
+                        TAS: <span id="sa-tgt-tas">---</span> KT / GS: <span id="sa-tgt-gs">---</span> KT<br>
+                        <span class="sa-temp-val">SAT: <span id="sa-tgt-temp">--</span>°C</span>
+                        <span class="sa-conv-val" id="sa-tgt-conv">IAS: --- KT</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sa-result-area">
+                <div class="sa-res-box">
+                    <div class="sa-res-title">TIME DIFF</div>
+                    <div class="sa-res-val" id="sa-res-time">--:--</div>
+                    <div class="sa-res-sub" id="sa-time-sub">TOTAL --:--</div>
+                </div>
+                <div class="sa-res-box">
+                    <div class="sa-res-title">BOF DIFF (ACTUAL)</div>
+                    <div class="sa-res-val" id="sa-res-fuel">-- LBS</div>
+                    <div class="sa-res-sub" id="sa-res-fuel-pct">(--%)</div>
+                </div>
+            </div>
+
+            <div class="sa-judge" id="sa-judge-text">INPUT DATA</div>
+        </div>
+        <button class="m-close" onclick="closeModal('scenario')">CLOSE</button>
+    </div>
+</div>
+
+<div id="modal-sa-numpad" class="modal-overlay" onclick="saCloseNumpad()">
+    <div class="numpad-card" onclick="event.stopPropagation()">
+        <div class="np-header">
+            <span id="sa-np-label">INPUT VALUE</span>
+            <span id="sa-np-val"></span>
+        </div>
+        <div class="np-grid">
+            <button onclick="saNpInput('7')">7</button><button onclick="saNpInput('8')">8</button><button onclick="saNpInput('9')">9</button>
+            <button onclick="saNpInput('4')">4</button><button onclick="saNpInput('5')">5</button><button onclick="saNpInput('6')">6</button>
+            <button onclick="saNpInput('1')">1</button><button onclick="saNpInput('2')">2</button><button onclick="saNpInput('3')">3</button>
+            <button onclick="saNpInput('.')">.</button><button onclick="saNpInput('0')">0</button>
+            <button onclick="saNpClear()" class="del" style="color:#f59e0b !important;">C</button>
+            <button onclick="saNpBack()" class="del">⌫</button>
+            <button onclick="saNpConfirm()" class="np-ok" style="grid-column: span 2;">ENTER</button>
+        </div>
+    </div>
+</div>
+
+<div id="modal-log" class="modal-overlay" onclick="closeModal('log')">
+    <div class="modal-card" style="width: 700px !important; max-width: 95vw;" onclick="event.stopPropagation()">
+        <div class="m-head">
+            PERSONAL LOG
+            <div style="font-size:0.7rem; color:#94a3b8;">JCAB FORMAT</div>
+        </div>
+        
+        <div class="log-layout">
+            <div class="log-info-row">
+                <div class="log-info-col">
+                    <span class="log-label-mini">DATE / FLT / SHIP</span>
+                    <div style="display:flex; gap:10px; align-items:baseline;">
+                        <span id="log-date" class="log-info-text" style="color:var(--primary);">--:--</span>
+                        <span id="log-flt" class="log-info-text">JL----</span>
+                        <span id="log-ship" class="log-info-text" style="color:var(--accent); cursor:pointer; text-decoration:underline;" onclick="openShipInput()">JA----</span>
+                    </div>
+                </div>
+                <div class="log-info-col" style="align-items:center;">
+                    <span class="log-label-mini">ROUTE</span>
+                    <div style="display:flex; gap:5px; align-items:center;">
+                        <input type="text" id="log-dep" class="route-input" placeholder="DEP" readonly>
+                        <span style="color:#94a3b8;">▸</span>
+                        <input type="text" id="log-arr" class="route-input" placeholder="ARR" readonly>
+                    </div>
+                </div>
+                <div class="log-info-col" style="width:100px;">
+                    <span class="log-label-mini">ROLE</span>
+                    <div class="toggle-row">
+                        <button class="toggle-btn active" id="btn-role-co" onclick="setLogRole('CO')">CO</button>
+                        <button class="toggle-btn" id="btn-role-pus" onclick="setLogRole('PUS')">PUS</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="log-section-title">BLOCK TIMES</div>
+            <div class="log-grid-row">
+                <div class="log-box" onclick="openLogNumpad('log-t-out', 'OUT TIME', 'time')">
+                    <span class="log-label">OUT (UTC)</span>
+                    <input type="text" id="log-t-out" class="log-input-lg" placeholder="--:--" readonly>
+                    <button class="log-set-btn" onclick="event.stopPropagation(); setLogTime('out')">SET NOW</button>
+                </div>
+                <div class="log-box" onclick="openLogNumpad('log-t-in', 'IN TIME', 'time')">
+                    <span class="log-label">IN (UTC)</span>
+                    <input type="text" id="log-t-in" class="log-input-lg" placeholder="--:--" readonly>
+                    <button class="log-set-btn" onclick="event.stopPropagation(); setLogTime('in')">SET NOW</button>
+                </div>
+            </div>
+
+            <div class="log-result-bar">
+                <span style="font-size:0.8rem; font-weight:700; color:#94a3b8;">TOTAL BLOCK TIME</span>
+                <span id="log-res-blk" class="log-res-val">00:00</span>
+            </div>
+
+            <div class="log-section-title">OPERATIONAL DETAILS</div>
+            <div class="log-grid-row">
+                <div class="log-assign-box">
+                    <div class="assign-header">TAKEOFF</div>
+                    <div class="toggle-row">
+                        <button class="toggle-btn active" id="btn-to-pf" onclick="setAssign('to', 'pf')">PF</button>
+                        <button class="toggle-btn" id="btn-to-pm" onclick="setAssign('to', 'pm')">PM</button>
+                    </div>
+                    <div class="toggle-row" style="margin-top:5px;">
+                        <button class="toggle-btn active-day" id="btn-to-day" onclick="setCond('to', 'day')">DAY</button>
+                        <button class="toggle-btn" id="btn-to-ngt" onclick="setCond('to', 'ngt')">NGT</button>
+                    </div>
+                </div>
+                <div class="log-assign-box">
+                    <div class="assign-header">LANDING</div>
+                    <div class="toggle-row">
+                        <button class="toggle-btn active" id="btn-ldg-pf" onclick="setAssign('ldg', 'pf')">PF</button>
+                        <button class="toggle-btn" id="btn-ldg-pm" onclick="setAssign('ldg', 'pm')">PM</button>
+                    </div>
+                    <div class="toggle-row" style="margin-top:5px;">
+                        <button class="toggle-btn active-day" id="btn-ldg-day" onclick="setCond('ldg', 'day')">DAY</button>
+                        <button class="toggle-btn" id="btn-ldg-ngt" onclick="setCond('ldg', 'ngt')">NGT</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="log-grid-row">
+                <div class="input-styled" onclick="openLogNumpad('log-t-ngt', 'NIGHT TIME', 'duration')">
+                    <div style="display:flex; justify-content:space-between; align-items:center; width:100%;">
+                        <span class="log-label">NGT TIME</span>
+                        <button class="mini-btn" onclick="event.stopPropagation(); setNgtToBlock()">ALL</button>
+                    </div>
+                    <input type="text" id="log-t-ngt" class="clean-input" placeholder="00h00m" readonly>
+                </div>
+                <div class="input-styled" onclick="openLogNumpad('log-t-inst', 'INST TIME', 'duration')">
+                    <span class="log-label">INST TIME</span>
+                    <input type="text" id="log-t-inst" class="clean-input" placeholder="00h00m" readonly>
+                </div>
+            </div>
+            
+            <textarea id="log-memo" class="log-memo-area" placeholder="Remarks..." oninput="updatePreview()"></textarea>
+
+            <div class="logbook-preview">
+                <div id="log-preview-text" class="preview-text">Loading...</div>
+                <button class="copy-btn-lg" onclick="copyLogbookFormat()">
+                    <span>📋 COPY</span>
+                </button>
+            </div>
+        </div>
+        <button class="m-close" onclick="closeModal('log')">CLOSE</button>
+    </div>
+</div>
+
+<div id="modal-log-numpad" class="modal-overlay" onclick="closeLogNumpad()">
+    <div class="numpad-card" onclick="event.stopPropagation()">
+        <div class="np-header">
+            <span id="log-np-label">INPUT</span>
+            <span id="log-np-val"></span>
+        </div>
+        <div class="np-grid">
+            <button class="np-btn" onclick="logNpInput('7')">7</button><button class="np-btn" onclick="logNpInput('8')">8</button><button class="np-btn" onclick="logNpInput('9')">9</button>
+            <button class="np-btn" onclick="logNpInput('4')">4</button><button class="np-btn" onclick="logNpInput('5')">5</button><button class="np-btn" onclick="logNpInput('6')">6</button>
+            <button class="np-btn" onclick="logNpInput('1')">1</button><button class="np-btn" onclick="logNpInput('2')">2</button><button class="np-btn" onclick="logNpInput('3')">3</button>
+            <button class="np-btn" onclick="logNpInput('.')">.</button><button class="np-btn" onclick="logNpInput('0')">0</button>
+            <button class="np-btn del" onclick="logNpBack()">⌫</button>
+            <button class="np-btn cancel" onclick="logNpClear()">CLR</button>
+            <button class="np-btn confirm" onclick="logNpConfirm()">ENTER</button>
         </div>
     </div>
 </div>

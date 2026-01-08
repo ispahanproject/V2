@@ -12,9 +12,9 @@ const WX_API_KEY = "70a1a6628e114359af87a90f1f2f39e1";
 // IATA(3文字) -> ICAO(4文字) 変換マップ
 const AIRPORT_MAP = {
     "HND": "RJTT", "ITM": "RJOO", "CTS": "RJCC", "FUK": "RJFF", "OKA": "ROAH",
-    "KIX": "RJBB", "NGO": "RJGG", "HIJ": "RJOI", "MMB": "RJCM", "AKJ": "RJEC",
+    "KIX": "RJBB", "NGO": "RJGG", "HIJ": "RJOA", "MMB": "RJCM", "AKJ": "RJEC",
     "KUH": "RJCK", "HKD": "RJCH", "AOJ": "RJSA", "MSJ": "RJSM", "AXT": "RJSK",
-    "GAJ": "RJSC", "KMQ": "RJNK", "SHM": "RJDT", "OKJ": "RJOB", "IZO": "RJOC",
+    "GAJ": "RJSC", "KMQ": "RJNK", "SHM": "RJBD", "OKJ": "RJOB", "IZO": "RJOC",
     "UBJ": "RJDC", "TKS": "RJOS", "TAK": "RJOT", "KCZ": "RJOK", "MYJ": "RJOM",
     "KKJ": "RJFR", "OIT": "RJFO", "NGS": "RJFU", "KMJ": "RJFT", "KMI": "RJFM",
     "KOJ": "RJFK", "ASJ": "RJKA", "ISG": "ROIG", "MMY": "ROMY", "OKD": "RJCO",
@@ -1028,7 +1028,9 @@ const PERF_AIRPORT_DB = {
     "RJFO": { name: "OITA", elevation: 16, runways: { "01": {hdg:7,len:3000,lda:3000,slope:0}, "19": {hdg:187,len:3000,lda:3000,slope:0} } },
     "RJFM": { name: "MIYAZAKI", elevation: 20, runways: { "09": {hdg:91,len:2500,lda:2500,slope:0}, "27": {hdg:271,len:2500,lda:2500,slope:0} } },
     "RJFK": { name: "KAGOSHIMA", elevation: 890, runways: { "34": {hdg:336,len:3000,lda:3000,slope:-0.8}, "16": {hdg:156,len:3000,lda:3000,slope:0.8} } },
-
+    "RJFT": { name: "KUMAMOTO", elevation: 632, runways: { "07": {hdg:65, len:3000, lda:3000, slope:0.4}, "25": {hdg:245, len:3000, lda:3000, slope:-0.4} }},
+  
+  
     // --- 沖縄・離島 ---
     "RJKA": { name: "AMAMI", elevation: 26, runways: { "03": {hdg:29,len:2000,lda:2000,slope:0}, "21": {hdg:209,len:2000,lda:2000,slope:0} } },
     "ROAH": { name: "NAHA", elevation: 12, runways: { "18L": {hdg:176,len:3000,lda:3000,slope:0}, "36R": {hdg:356,len:3000,lda:3000,slope:0}, "18R": {hdg:176,len:2700,lda:2700,slope:0}, "36L": {hdg:356,len:2700,lda:2700,slope:0} } },
@@ -1689,6 +1691,15 @@ function openModal(id) {
         case 'cross':
             // Crossover: (基本は初期化済み)
             break;
+
+        case 'scenario':
+        initScenario();
+        break;
+
+        case 'log':
+            initLog();
+            break;
+
     }
 }
 
@@ -2622,4 +2633,661 @@ function loadData() {
     }
 }
 
+/* ============================================================
+   JSファイル末尾などに以下を全て追記してください
+   ============================================================ */
 
+/* === SCENARIO ANALYZER MODULE === */
+
+// B737 Total Fuel Flow Data (Interpolated)
+const PERF_DATA = {
+  41000: {90:3876, 100:3986, 110:4184, 120:4404, 130:4632, 140:4766, 150:null, 160:null, 170:null, 180:null, 190:null},
+  40000: {90:3962, 100:4074, 110:4252, 120:4460, 130:4648, 140:4747, 150:null, 160:null, 170:null, 180:null, 190:null},
+  39000: {90:4048, 100:4162, 110:4320, 120:4514, 130:4664, 140:4728, 150:5024, 160:null, 170:null, 180:null, 190:null},
+  38000: {90:4222, 100:4336, 110:4494, 120:4684, 130:4790, 140:4896, 150:5164, 160:null, 170:null, 180:null, 190:null},
+  37000: {90:4292, 100:4396, 110:4512, 120:4668, 130:4854, 140:5064, 150:5306, 160:5736, 170:null, 180:null, 190:null},
+  36000: {90:4492, 100:4594, 110:4708, 120:4860, 130:5044, 140:5252, 150:5480, 160:5852, 170:null, 180:null, 190:null},
+  35000: {90:4690, 100:4792, 110:4904, 120:5054, 130:5232, 140:5438, 150:5654, 160:5968, 170:6494, 180:null, 190:null},
+  34000: {90:4816, 100:4904, 110:5012, 120:5140, 130:5284, 140:5460, 150:5652, 160:5908, 170:6278, 180:null, 190:null},
+  33000: {90:4944, 100:5018, 110:5122, 120:5226, 130:5338, 140:5480, 150:5650, 160:5850, 170:6062, 180:6300, 190:6680},
+  32000: {90:4920, 100:4990, 110:5088, 120:5192, 130:5304, 140:5442, 150:5604, 160:5792, 170:6002, 180:6234, 190:6548},
+  31000: {90:4896, 100:4962, 110:5052, 120:5160, 130:5272, 140:5404, 150:5556, 160:5732, 170:5942, 180:6168, 190:6416},
+  30000: {90:4892, 100:4956, 110:5044, 120:5149, 130:5256, 140:5380, 150:5520, 160:5696, 170:5897, 180:6120, 190:6378},
+  29000: {90:4892, 100:4950, 110:5032, 120:5138, 130:5240, 140:5358, 150:5488, 160:5660, 170:5852, 180:6072, 190:6340},
+  28000: {90:4890, 100:4944, 110:5025, 120:5131, 130:5240, 140:5364, 150:5500, 160:5664, 170:5848, 180:6056, 190:6310},
+  27000: {90:4888, 100:4938, 110:5018, 120:5124, 130:5240, 140:5370, 150:5514, 160:5668, 170:5842, 180:6040, 190:6280},
+  26000: {90:4886, 100:4937, 110:5012, 120:5115, 130:5240, 140:5358, 150:5503, 160:5657, 170:5829, 180:6024, 190:6258},
+  25000: {90:4884, 100:4936, 110:5006, 120:5106, 130:5222, 140:5346, 150:5492, 160:5646, 170:5816, 180:6008, 190:6236},
+  24000: {90:4900, 100:4953, 110:5019, 120:5115, 130:5226, 140:5347, 150:5489, 160:5640, 170:5812, 180:6004, 190:6230},
+  23000: {90:4916, 100:4970, 110:5032, 120:5124, 130:5230, 140:5348, 150:5488, 160:5640, 170:5808, 180:6000, 190:6224},
+  22000: {90:4952, 100:5006, 110:5067, 120:5156, 130:5256, 140:5368, 150:5500, 160:5650, 170:5812, 180:6002, 190:6223},
+  21000: {90:4988, 100:5042, 110:5102, 120:5188, 130:5282, 140:5388, 150:5516, 160:5660, 170:5816, 180:6004, 190:6222},
+  20000: {90:5024, 100:5081, 110:5141, 120:5226, 130:5320, 140:5422, 150:5547, 160:5684, 170:5835, 180:6013, 190:6241},
+  19000: {90:5060, 100:5118, 110:5180, 120:5266, 130:5356, 140:5458, 150:5576, 160:5712, 170:5854, 180:6022, 190:6224},
+  18000: {90:5088, 100:5148, 110:5210, 120:5296, 130:5390, 140:5490, 150:5612, 160:5748, 170:5896, 180:6050, 190:6244},
+  17000: {90:5114, 100:5176, 110:5240, 120:5328, 130:5424, 140:5532, 150:5648, 160:5786, 170:5926, 180:6082, 190:6264},
+  16000: {90:5136, 100:5202, 110:5262, 120:5348, 130:5446, 140:5556, 150:5672, 160:5814, 170:5960, 180:6116, 190:6304},
+  15000: {90:5156, 100:5220, 110:5284, 120:5370, 130:5468, 140:5582, 150:5698, 160:5842, 170:5992, 180:6150, 190:6328},
+  14000: {90:5172, 100:5236, 110:5300, 120:5384, 130:5480, 140:5594, 150:5711, 160:5856, 170:6008, 180:6168, 190:6350},
+  13000: {90:5190, 100:5252, 110:5316, 120:5400, 130:5494, 140:5606, 150:5724, 160:5868, 170:6022, 180:6188, 190:6372},
+  12000: {90:5212, 100:5272, 110:5336, 120:5416, 130:5508, 140:5617, 150:5736, 160:5876, 170:6028, 180:6196, 190:6380},
+  11000: {90:5236, 100:5294, 110:5356, 120:5434, 130:5524, 140:5628, 150:5748, 160:5886, 170:6036, 180:6204, 190:6390}
+};
+
+let saMode = 'mach'; 
+let saNpTargetId = null;
+let saNpVal = "";
+
+function initScenario() {
+    initFlOptions();
+    // デフォルト値の計算
+    calcScenario();
+}
+
+function initFlOptions() {
+    const opts = [];
+    for (let fl = 410; fl >= 110; fl -= 10) {
+        opts.push(`<option value="${fl}">FL${fl}</option>`);
+    }
+    const html = opts.join('');
+    
+    const elBase = document.getElementById('sa-base-fl');
+    const elTgt = document.getElementById('sa-tgt-fl');
+    
+    if(elBase) {
+        elBase.innerHTML = html;
+        elBase.value = "370"; 
+    }
+    if(elTgt) {
+        elTgt.innerHTML = html;
+        elTgt.value = "250"; 
+    }
+}
+
+function setSaMode(mode, e) {
+    if(e) e.stopPropagation();
+    saMode = mode;
+    document.getElementById('btn-mode-mach').className = `mode-btn ${mode==='mach'?'active':''}`;
+    document.getElementById('btn-mode-ias').className = `mode-btn ${mode==='ias'?'active':''}`;
+    
+    const el = document.getElementById('sa-tgt-val');
+    if (mode === 'mach') {
+        el.value = "0.78";
+    } else {
+        el.value = "280";
+    }
+    calcScenario();
+}
+
+function openScenarioSpdNumpad() {
+    let label = (saMode === 'mach') ? "SCENARIO MACH" : "SCENARIO IAS (KT)";
+    saOpenNumpad('sa-tgt-val', label);
+}
+
+function syncWind() {
+    const baseW = document.getElementById('sa-base-wind').value;
+    const tgtInput = document.getElementById('sa-tgt-wind');
+    if (document.activeElement !== tgtInput) {
+        tgtInput.value = baseW;
+    }
+}
+
+function getFuelFlow(fl, weight) {
+    const alt = fl * 100;
+    const lookupAlt = Math.round(alt / 1000) * 1000;
+    const row = PERF_DATA[lookupAlt];
+    if (!row) return 5000;
+
+    const wLow = Math.floor(weight / 10) * 10;
+    const wHigh = wLow + 10;
+    
+    const ffLow = row[wLow];
+    const ffHigh = row[wHigh];
+
+    if (ffLow === undefined && ffHigh === undefined) return 5000;
+    if (ffLow === undefined) return ffHigh;
+    if (ffHigh === undefined || ffHigh === null) return ffLow;
+
+    const ratio = (weight - wLow) / 10;
+    return ffLow + (ffHigh - ffLow) * ratio;
+}
+
+function getIsaData(fl) {
+    const altFt = fl * 100;
+    let tempK = 0;
+    let press = 0;
+    // Standard Atmosphere Constants
+    const T0 = 288.15; const P0 = 1013.25;
+
+    if (altFt <= 36089) {
+        tempK = T0 - 0.0019812 * altFt;
+        let tempRatio = tempK / T0;
+        press = P0 * Math.pow(tempRatio, 5.25588);
+    } else {
+        tempK = 216.65;
+        let pressTrop = 226.32;
+        let heightDiff = altFt - 36089;
+        press = pressTrop * Math.exp(-0.00004815 * heightDiff);
+    }
+
+    const a = 38.9678 * Math.sqrt(tempK); 
+    return { p: press, a: a, t: tempK };
+}
+
+function getAeroFromMach(fl, mach) {
+    const isa = getIsaData(fl);
+    const P0 = 1013.25; const A0 = 661.47;
+    const tas = mach * isa.a;
+    const term1 = 1 + 0.2 * Math.pow(mach, 2);
+    const pTotal = isa.p * Math.pow(term1, 3.5);
+    const qc = pTotal - isa.p; 
+    const term2 = (qc / P0) + 1;
+    const ias = A0 * Math.sqrt(5 * (Math.pow(term2, 2/7) - 1));
+    return { tas: tas, ias: ias, mach: mach, tempK: isa.t }; 
+}
+
+function getAeroFromIas(fl, ias) {
+    const isa = getIsaData(fl);
+    const P0 = 1013.25;
+    const term1 = 1 + 0.2 * Math.pow(ias / 661.47, 2);
+    const qc = P0 * (Math.pow(term1, 3.5) - 1);
+    const term2 = (qc / isa.p) + 1;
+    const mach = Math.sqrt(5 * (Math.pow(term2, 2/7) - 1));
+    const tas = mach * isa.a;
+    return { tas: tas, mach: mach, ias: ias, tempK: isa.t }; 
+}
+
+function formatMinSec(mins) {
+    const m = Math.floor(mins);
+    const s = Math.round((mins - m) * 60);
+    return String(m).padStart(2,'0') + ":" + String(s).padStart(2,'0');
+}
+
+function calcScenario() {
+    const dist = parseFloat(document.getElementById('sa-dist').value) || 0;
+    const wt = parseFloat(document.getElementById('sa-wt').value) || 120; 
+
+    const baseFL = parseFloat(document.getElementById('sa-base-fl').value) || 370;
+    const baseMach = parseFloat(document.getElementById('sa-base-mach').value) || 0.78;
+    const baseWind = parseFloat(document.getElementById('sa-base-wind').value) || 0;
+
+    const tgtFL = parseFloat(document.getElementById('sa-tgt-fl').value) || 370;
+    const tgtVal = parseFloat(document.getElementById('sa-tgt-val').value) || 0;
+    const tgtWind = parseFloat(document.getElementById('sa-tgt-wind').value) || 0;
+
+    // --- PHYSICS CALCULATION ---
+    const baseAero = getAeroFromMach(baseFL, baseMach);
+    const baseTas = baseAero.tas;
+    const baseIas = baseAero.ias;
+    const baseTempC = Math.round(baseAero.tempK - 273.15);
+
+    let tgtTas = 0;
+    let tgtMach = 0;
+    let tgtIas = 0;
+    let tgtTempC = 0;
+
+    if (saMode === 'mach') {
+        tgtMach = tgtVal;
+        const tgtAero = getAeroFromMach(tgtFL, tgtVal);
+        tgtTas = tgtAero.tas;
+        tgtIas = tgtAero.ias;
+        tgtTempC = Math.round(tgtAero.tempK - 273.15);
+    } else {
+        tgtIas = tgtVal;
+        const tgtAero = getAeroFromIas(tgtFL, tgtVal);
+        tgtTas = tgtAero.tas;
+        tgtMach = tgtAero.mach;
+        tgtTempC = Math.round(tgtAero.tempK - 273.15);
+    }
+
+    // UPDATE DISPLAY
+    document.getElementById('sa-base-tas').innerText = Math.round(baseTas);
+    document.getElementById('sa-base-gs').innerText = Math.round(baseTas + baseWind);
+    document.getElementById('sa-base-temp').innerText = baseTempC;
+    document.getElementById('sa-base-conv').innerText = `IAS: ${Math.round(baseIas)} KT`;
+
+    document.getElementById('sa-tgt-tas').innerText = Math.round(tgtTas);
+    document.getElementById('sa-tgt-gs').innerText = Math.round(tgtTas + tgtWind);
+    document.getElementById('sa-tgt-temp').innerText = tgtTempC;
+    
+    const elConv = document.getElementById('sa-tgt-conv');
+    if (saMode === 'mach') {
+        elConv.innerText = `IAS: ${Math.round(tgtIas)} KT`;
+    } else {
+        elConv.innerText = `MACH: .${Math.round(tgtMach * 100)}`; 
+        if (tgtMach >= 1) elConv.innerText = `MACH: ${tgtMach.toFixed(2)}`;
+    }
+
+    // TIME CALCULATION
+    const baseGs = baseTas + baseWind;
+    const tgtGs = tgtTas + tgtWind;
+
+    let baseTimeH = (baseGs > 0) ? dist / baseGs : 0;
+    let tgtTimeH = (tgtGs > 0) ? dist / tgtGs : 0;
+    
+    const diffMin = (tgtTimeH - baseTimeH) * 60; 
+
+    const elTime = document.getElementById('sa-res-time');
+    if (Math.abs(diffMin) < 0.1) {
+        elTime.innerText = "00:00";
+        elTime.className = "sa-res-val res-neutral";
+    } else if (diffMin < 0) {
+        elTime.innerText = "-" + formatMinSec(Math.abs(diffMin)); // Negative is Faster
+        elTime.className = "sa-res-val res-good";
+    } else {
+        elTime.innerText = "+" + formatMinSec(Math.abs(diffMin)); // Positive is Slower
+        elTime.className = "sa-res-val res-bad";
+    }
+    
+    const tgtH = Math.floor(tgtTimeH);
+    const tgtM = Math.round((tgtTimeH - tgtH) * 60);
+    document.getElementById('sa-time-sub').innerText = `TOTAL ${String(tgtH).padStart(2,'0')}:${String(tgtM).padStart(2,'0')}`;
+
+    // --- FUEL CALCULATION ---
+    let rawBaseFF = getFuelFlow(baseFL, wt);
+    let baseRefMach = (baseFL >= 270) ? 0.79 : getAeroFromIas(baseFL, 280).mach;
+    let baseSpdDiff = baseMach - baseRefMach;
+    let baseFF = rawBaseFF * (1 + (baseSpdDiff / 0.01) * 0.02);
+
+    let rawTgtFF = getFuelFlow(tgtFL, wt);
+    let tgtRefMach = 0;
+    if (tgtFL >= 270) {
+        tgtRefMach = 0.79;
+    } else {
+        tgtRefMach = getAeroFromIas(tgtFL, 280).mach;
+    }
+    let tgtSpdDiff = tgtMach - tgtRefMach;
+    let tgtFF = rawTgtFF * (1 + (tgtSpdDiff / 0.01) * 0.02);
+
+    let baseBurn = baseFF * baseTimeH;
+    let tgtBurn = tgtFF * tgtTimeH;
+    
+    let diffFuel = tgtBurn - baseBurn; 
+
+    const elFuel = document.getElementById('sa-res-fuel');
+    const elFuelPct = document.getElementById('sa-res-fuel-pct');
+    
+    if (diffFuel > 10) {
+        elFuel.innerText = "+" + Math.round(diffFuel) + " LBS";
+        elFuel.className = "sa-res-val res-bad";
+    } else if (diffFuel < -10) {
+        elFuel.innerText = Math.round(diffFuel) + " LBS";
+        elFuel.className = "sa-res-val res-good";
+    } else {
+        elFuel.innerText = "0 LBS";
+        elFuel.className = "sa-res-val res-neutral";
+    }
+
+    let diffPct = 0;
+    if (baseBurn > 0) {
+        diffPct = ((tgtBurn - baseBurn) / baseBurn) * 100;
+    }
+    let signPct = diffPct > 0 ? "+" : "";
+    elFuelPct.innerText = `(${signPct}${diffPct.toFixed(1)}%)`;
+
+    // --- JUDGMENT LOGIC (COST/MIN) ---
+    const elJudge = document.getElementById('sa-judge-text');
+    let costPerMin = 0;
+    
+    if (Math.abs(diffMin) > 0.1) {
+        costPerMin = Math.abs(diffFuel / diffMin);
+    }
+
+    if (diffMin <= -0.1) { 
+        // FASTER
+        if (diffFuel > 0) {
+            elJudge.innerText = `⚡ COST: ${Math.round(costPerMin)} LBS/MIN`;
+            elJudge.className = "sa-judge res-cost";
+        } else {
+            elJudge.innerText = "✨ GREAT ADVANTAGE";
+            elJudge.className = "sa-judge res-good";
+        }
+    } else if (diffMin >= 0.1) { 
+        // SLOWER
+        if (diffFuel < 0) {
+            elJudge.innerText = `💰 SAVE: ${Math.round(costPerMin)} LBS/MIN`;
+            elJudge.className = "sa-judge res-good";
+        } else {
+            elJudge.innerText = "👎 DISADVANTAGE";
+            elJudge.className = "sa-judge res-bad";
+        }
+    } else {
+        elJudge.innerText = "TIME UNCHANGED";
+        elJudge.className = "sa-judge res-neutral";
+    }
+}
+
+/* --- SCENARIO NUMPAD LOGIC --- */
+function saOpenNumpad(id, label) {
+    saNpTargetId = id;
+    saNpVal = "";
+    document.getElementById('sa-np-label').innerText = label;
+    document.getElementById('sa-np-val').innerText = "";
+    document.getElementById('modal-sa-numpad').classList.add('active');
+}
+function saCloseNumpad() {
+    document.getElementById('modal-sa-numpad').classList.remove('active');
+}
+function saNpInput(n) {
+    if(saNpVal.length < 7) saNpVal += n;
+    document.getElementById('sa-np-val').innerText = saNpVal;
+}
+function saNpBack() {
+    saNpVal = saNpVal.slice(0, -1);
+    document.getElementById('sa-np-val').innerText = saNpVal;
+}
+function saNpClear() {
+    saNpVal = "";
+    document.getElementById('sa-np-val').innerText = "";
+}
+function saNpConfirm() {
+    if(saNpTargetId) {
+        const el = document.getElementById(saNpTargetId);
+        if(saNpVal !== "") el.value = saNpVal;
+        if(saNpTargetId === 'sa-base-wind') syncWind();
+        calcScenario();
+    }
+    saCloseNumpad();
+}
+
+/* ============================================================
+   PERSONAL LOG MODULE (Integrated v10)
+   ============================================================ */
+
+let logRole = 'CO';
+let assign = { to: 'pf', ldg: 'pf' };
+let cond = { to: 'day', ldg: 'day' };
+
+let logNpTargetId = null;
+let logNpVal = "";
+let logNpMode = 'number';
+
+function initLog() {
+    // 1. 日付の自動セット (DD:MM)
+    const today = new Date();
+    const dd = String(today.getDate()).padStart(2, '0');
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    document.getElementById('log-date').innerText = `${dd}:${mm}`;
+    
+    // 2. ダッシュボード情報の自動取得
+    let fltNum = "----";
+    let shipNum = "----";
+    let depAp = "----";
+    let arrAp = "----";
+
+    if (typeof state !== 'undefined' && state.legs && state.legs[state.idx]) {
+        const leg = state.legs[state.idx];
+        if (leg.flightNo) fltNum = leg.flightNo;
+        if (leg.ship) shipNum = leg.ship;
+        if (leg.dep) depAp = leg.dep;
+        if (leg.arr) arrAp = leg.arr;
+    }
+
+    // 3. 画面への反映
+    document.getElementById('log-flt').innerText = "JL" + fltNum;
+    // JA+数字形式で表示（データが空ならJA----）
+    document.getElementById('log-ship').innerText = shipNum.length >= 2 ? "JA" + shipNum : "JA----";
+    document.getElementById('log-dep').value = depAp;
+    document.getElementById('log-arr').value = arrAp;
+    
+    // プレビュー更新
+    updatePreview();
+}
+
+/* --- UI TOGGLES --- */
+function setLogRole(role) {
+    logRole = role;
+    document.getElementById('btn-role-co').className = `toggle-btn ${role==='CO'?'active':''}`;
+    document.getElementById('btn-role-pus').className = `toggle-btn ${role==='PUS'?'active':''}`;
+    updatePreview();
+}
+
+function setAssign(phase, role) {
+    assign[phase] = role;
+    document.getElementById(`btn-${phase}-pf`).className = `toggle-btn ${role==='pf'?'active':''}`;
+    document.getElementById(`btn-${phase}-pm`).className = `toggle-btn ${role==='pm'?'active':''}`;
+    updatePreview();
+}
+
+function setCond(phase, c) {
+    cond[phase] = c;
+    const activeClass = (c === 'day') ? 'active-day' : 'active-ngt';
+    document.getElementById(`btn-${phase}-day`).className = `toggle-btn ${c==='day'?activeClass:''}`;
+    document.getElementById(`btn-${phase}-ngt`).className = `toggle-btn ${c==='ngt'?activeClass:''}`;
+    updatePreview();
+}
+
+/* --- TIME & SHIP INPUT HELPERS --- */
+function setLogTime(type) {
+    const now = new Date();
+    const hh = String(now.getUTCHours()).padStart(2, '0');
+    const mm = String(now.getUTCMinutes()).padStart(2, '0');
+    document.getElementById(`log-t-${type}`).value = `${hh}:${mm}`;
+    calcLogStats();
+}
+
+function setNgtToBlock() {
+    const blk = document.getElementById('log-res-blk').innerText;
+    if (!blk || blk === "00:00") return;
+    const [hh, mm] = blk.split(':');
+    document.getElementById('log-t-ngt').value = `${hh}h${mm}m`;
+    updatePreview();
+}
+
+function openShipInput() {
+    // ログ用テンキーを「機番入力モード」で開く (ID: REG_UPDATE)
+    openLogNumpad('REG_UPDATE', 'SHIP No. (4 digits)', 'number');
+}
+
+/* --- LOG NUMPAD CONTROLLER --- */
+function openLogNumpad(id, label, mode) {
+    logNpTargetId = id;
+    logNpVal = "";
+    logNpMode = mode || 'number';
+    document.getElementById('log-np-label').innerText = label;
+    document.getElementById('log-np-val').innerText = "";
+    document.getElementById('modal-log-numpad').classList.add('active');
+}
+
+function closeLogNumpad() {
+    document.getElementById('modal-log-numpad').classList.remove('active');
+}
+
+function logNpInput(n) {
+    if (logNpMode === 'time' || logNpMode === 'duration') {
+        if (logNpVal.length < 4) logNpVal += n;
+    } else {
+        if (logNpVal.length < 6) logNpVal += n;
+    }
+    document.getElementById('log-np-val').innerText = logNpVal;
+}
+
+function logNpBack() {
+    logNpVal = logNpVal.slice(0, -1);
+    document.getElementById('log-np-val').innerText = logNpVal;
+}
+
+function logNpClear() {
+    logNpVal = "";
+    document.getElementById('log-np-val').innerText = "";
+}
+
+function logNpConfirm() {
+    if(logNpTargetId) {
+        // ▼▼▼ 機番更新の特別処理 ▼▼▼
+        if (logNpTargetId === 'REG_UPDATE') {
+            if (logNpVal !== "") {
+                const shipVal = logNpVal; // 入力された数字（例: 8001）
+                
+                // データ初期化
+                if (typeof state === 'undefined') state = { legs: [], currentLegIndex: 0 };
+                if (!state.legs) state.legs = [];
+
+                // 現在のレグ以降すべてに機番を反映
+                const startIdx = state.idx || 0;
+                // レグデータが足りない場合は自動生成
+                while (state.legs.length <= startIdx + 3) state.legs.push({});
+
+                for (let i = startIdx; i < state.legs.length; i++) {
+                    if (!state.legs[i]) state.legs[i] = {};
+                    state.legs[i].ship = shipVal;
+                }
+
+                initLog(); // 画面更新
+                if (typeof saveData === 'function') saveData(); // 保存
+            }
+            closeLogNumpad();
+            return;
+        }
+        // ▲▲▲ 特別処理ここまで ▲▲▲
+
+        let formatted = logNpVal;
+        if (logNpVal !== "") {
+            if (logNpMode === 'time') {
+                const p = logNpVal.padStart(4, '0');
+                formatted = `${p.slice(0,2)}:${p.slice(2,4)}`;
+            } else if (logNpMode === 'duration') {
+                const p = logNpVal.padStart(4, '0');
+                formatted = `${p.slice(0,2)}h${p.slice(2,4)}m`;
+            }
+        }
+        
+        const el = document.getElementById(logNpTargetId);
+        if(el) {
+            el.value = formatted;
+            calcLogStats();
+        }
+    }
+    closeLogNumpad();
+}
+
+/* --- CALCULATIONS --- */
+function calcLogStats() {
+    const outT = document.getElementById('log-t-out').value;
+    const inT = document.getElementById('log-t-in').value;
+    const blk = calcTimeDiff(outT, inT);
+    document.getElementById('log-res-blk').innerText = blk;
+    updatePreview();
+}
+
+function calcTimeDiff(start, end) {
+    if (!start || !end || !start.includes(':') || !end.includes(':')) return "00:00";
+    let [h1, m1] = start.split(':').map(Number);
+    let [h2, m2] = end.split(':').map(Number);
+    let mStart = h1*60 + m1;
+    let mEnd = h2*60 + m2;
+    if (mEnd < mStart) mEnd += 24*60;
+    let diff = mEnd - mStart;
+    let h = Math.floor(diff/60);
+    let m = diff%60;
+    return String(h).padStart(2,'0') + ":" + String(m).padStart(2,'0');
+}
+
+/* --- PREVIEW GENERATION (Logbook Format) --- */
+function updatePreview() {
+    // 1. データ取得
+    const date = document.getElementById('log-date').innerText; // DD:MM
+    // REG: JAxxxx
+    const shipDisp = document.getElementById('log-ship').innerText;
+    const reg = shipDisp.includes("JA") ? shipDisp : "JA----";
+    // SHIP: 機種 (B738固定)
+    const type = "B738"; 
+    
+    // 便名 (JL + 数字)
+    const fltDisp = document.getElementById('log-flt').innerText;
+    const fltNum = fltDisp.replace("JL", "").trim();
+    const flt = "JL" + fltNum;
+
+    const dep = document.getElementById('log-dep').value.toUpperCase();
+    const arr = document.getElementById('log-arr').value.toUpperCase();
+    
+    const outT = document.getElementById('log-t-out').value || "";
+    const inT = document.getElementById('log-t-in').value || "";
+    const blk = document.getElementById('log-res-blk').innerText;
+    
+    // 時間フォーマット整形 (01h30m -> 1:30)
+    const formatDur = (val) => {
+        if (!val) return "";
+        let s = val.replace("h", ":").replace("m", "");
+        // 先頭の0を取る
+        if (s.startsWith("0") && s.length === 5) s = s.substring(1);
+        return s;
+    };
+
+    const ngt = formatDur(document.getElementById('log-t-ngt').value);
+    const inst = formatDur(document.getElementById('log-t-inst').value);
+    const memo = document.getElementById('log-memo').value;
+    
+    // 時間の振り分け
+    let picT = "", picXcT = "";
+    let coT = "", coXcT = "";
+    
+    let blkFmt = blk;
+    if (blkFmt.startsWith("0") && blkFmt.length === 5) blkFmt = blkFmt.substring(1);
+    if (blkFmt === "0:00") blkFmt = "";
+
+    if (logRole === 'PUS') {
+        picT = blkFmt;
+        picXcT = blkFmt; 
+    } else {
+        coT = blkFmt;
+        coXcT = blkFmt;
+    }
+
+    // 2. パディング処理
+    const pad = (str, len) => (str || "").padEnd(len, " ");
+    
+    const sDate   = pad(date, 6);
+    const sShip   = pad(type, 5);
+    const sReg    = pad(reg, 7);
+    const sDep    = pad(dep, 5); 
+    const sArr    = pad(arr, 5); 
+    const sOut    = pad(outT, 6); 
+    const sIn     = pad(inT, 6);  
+    const sFlt    = pad(flt, 8); // JLxxxx
+    const sPic    = pad(picT, 6);
+    const sPicXc  = pad(picXcT, 6);
+    const sCo     = pad(coT, 6);
+    const sCoXc   = pad(coXcT, 6);
+    const sNgt    = pad(ngt, 6);
+    const sInst   = pad(inst, 6);
+
+    // 3. ヘッダーとデータ (順序: DATE SHIP REG DEP ARR OUT IN FLT ...)
+    const header = 
+        pad("DATE",6) + pad("SHIP",5) + pad("REG",7) + 
+        pad("DEP",5) + pad("ARR",5) + 
+        pad("DEP",6) + pad("ARR",6) + 
+        pad("FLT",8) + 
+        pad("PIC",6) + pad("X/C",6) + 
+        pad("CO",6) + pad("X/C",6) + 
+        pad("NGT",6) + pad("INST",6);
+
+    const data = 
+        sDate + sShip + sReg + 
+        sDep + sArr + 
+        sOut + sIn + 
+        sFlt + 
+        sPic + sPicXc + 
+        sCo + sCoXc + 
+        sNgt + sInst;
+
+    let output = header + "\n" + data;
+    if(memo) output += "\nRMK: " + memo;
+
+    document.getElementById('log-preview-text').innerText = output;
+}
+
+function copyLogbookFormat() {
+    const text = document.getElementById('log-preview-text').innerText;
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).then(() => alert("COPIED!"));
+    } else {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand("copy");
+        document.body.removeChild(ta);
+        alert("COPIED!");
+    }
+}
