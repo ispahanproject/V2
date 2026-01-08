@@ -54,7 +54,7 @@
                 </div>
                 
                 <div class="t-cell" onclick="openNumpad('taxi')">
-                    <span class="t-label">TAXI</span>
+                    <span class="t-label">TAXI(AFT LDG)</span>
                     <span class="t-val val-green" id="disp-taxi">--</span>
                 </div>
             </div>
@@ -215,13 +215,13 @@
 
                         <div class="ref-card-btn" onclick="openModal('scenario')">
                               <span class="ref-icon-large">⏱️</span>
-                              <span class="ref-title">SCENARIO<br>COMPARE</span>
+                              <span class="ref-title">SCENARIO　COMPARISON</span>
                         </div>
 
-                        <div class="ref-card-btn">
-                            <span class="ref-icon-large">❄️</span>
-                            <span class="ref-title">COLD WX OPS</span>
-                        </div>
+                        <div class="ref-card-btn coming-soon">
+            <span class="ref-icon-large">❄️</span>
+            <span class="ref-title">COLD WX<br>OPS</span>
+        </div>
 
                         <div class="ref-card-btn" onclick="openModal('hold')">
                             <span class="ref-icon-large">✈️</span>
@@ -229,18 +229,18 @@
                         </div>
                         
                         <div class="ref-card-btn" onclick="openModal('converter')">
-                            <span class="ref-icon-large">📐</span>
-                            <span class="ref-title">CONVERTER</span>
+                            <span class="ref-icon-large">📱</span>
+                            <span class="ref-title">IAS/MACH CONVERTER</span>
                         </div>
 
-                        <div class="ref-card-btn">
-                            <span class="ref-icon-large">⚠️</span>
-                            <span class="ref-title">MEL / CDL</span>
-                        </div>
-                        <div class="ref-card-btn">
-                            <span class="ref-icon-large">📞</span>
-                            <span class="ref-title">CONTACTS</span>
-                        </div>
+                        <div class="ref-card-btn coming-soon">
+            <span class="ref-icon-large">🔧</span>
+            <span class="ref-title">MEL / CDL</span>
+        </div>
+                        <div class="ref-card-btn coming-soon">
+            <span class="ref-icon-large">📞</span>
+            <span class="ref-title">STATION<br>CONTACT</span>
+        </div>
 
                         <div class="ref-card-btn" onclick="openModal('log')">
                              <span class="ref-icon-large">📓</span>
@@ -516,107 +516,91 @@
         </div>
     </div>
 
-    <div id="modal-calc-wind" class="modal-overlay" onclick="closeModal('calc-wind')">
-        <div id="wind-iso-card" onclick="event.stopPropagation()">
-            
-            <div id="wind-iso-left">
-                <div class="modal-header">
-                    <div class="modal-title" style="color:#3b82f6;">
-                        <span>🌪️</span> WIND CALCULATOR
+   <div id="modal-calc-wind" class="modal-overlay" onclick="closeModal('calc-wind')">
+    <div class="wind-v5-card" onclick="event.stopPropagation()">
+        
+        <div class="wind-v5-left">
+            <div class="modal-header">
+                <div class="modal-title" style="color:#3b82f6;">WIND CALCULATOR</div>
+            </div>
+
+            <div class="wind-v5-visual">
+                <canvas id="wind-canvas" width="120" height="120"></canvas>
+            </div>
+
+            <div class="wind-v5-section">
+                <div class="wind-v5-sec-header"><span>🛫</span>RUNWAY CONFIG</div>
+                <div class="wind-v5-row">
+                    <div class="wind-v5-col" style="flex:1.2;">
+                        <div class="card-head"><span class="wind-v5-label">SELECT RWY</span></div>
+                        <select id="calc-rwy-sel" class="wind-v5-input" onchange="updateHdgFromSel()"></select>
                     </div>
-                    <button style="background:none; border:none; color:#94a3b8; font-size:1.5rem; cursor:pointer;" onclick="closeModal('calc-wind')">×</button>
-                </div>
-
-                <div style="display:flex; gap:10px; margin-bottom:15px; padding:0 10px;">
-                    <button id="btn-wind-to" class="wind-mode-btn active" onclick="setWindMode('takeoff')">
-                        TAKEOFF (DEP)
-                    </button>
-                    <button id="btn-wind-ldg" class="wind-mode-btn" onclick="setWindMode('landing')">
-                        LANDING (ARR)
-                    </button>
-                </div>
-
-                <div id="wind-iso-visual">
-                    <canvas id="wind-canvas" width="120" height="120"></canvas>
-                </div>
-
-                <div class="wind-iso-section">
-                    <div class="wind-iso-header"><span>🛫</span>RUNWAY CONFIG</div>
-                    <div class="wind-iso-row">
-                        <div style="flex:1.2;">
-                            <div class="wind-iso-label">SELECT RWY</div>
-                            <select id="calc-rwy-sel" class="wind-iso-input" onchange="updateHdgFromSel()"></select>
+                    <div class="wind-v5-col" style="flex:1.8;">
+                        <div class="card-head"><span class="wind-v5-label">MAG HDG</span></div>
+                        <div class="wind-v5-stepper">
+                            <button class="wind-v5-step-btn" onclick="stepHdg(-1)">-1</button>
+                            <input type="text" inputmode="numeric" id="calc-hdg" class="wind-v5-input" placeholder="---" oninput="runCalc()" onblur="formatHdg()" maxlength="3">
+                            <button class="wind-v5-step-btn" onclick="stepHdg(1)">+1</button>
                         </div>
-                        <div style="flex:1.8;">
-                            <div class="wind-iso-label">MAG HDG</div>
-                            <div class="wind-iso-stepper">
-                                <button class="wind-iso-btn" onclick="stepHdg(-1)">-1</button>
-                                <input type="text" inputmode="numeric" id="calc-hdg" class="wind-iso-input" placeholder="---" oninput="runCalc()" onblur="formatHdg()" maxlength="3">
-                                <button class="wind-iso-btn" onclick="stepHdg(1)">+1</button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="wind-iso-section">
-                    <div class="wind-iso-header"><span>💨</span>WIND DATA</div>
-                    <div class="wind-iso-row">
-                        <div style="flex:1.8;">
-                            <div class="wind-iso-label">DIRECTION (°)</div>
-                            <div class="wind-iso-stepper">
-                                <button class="wind-iso-btn" onclick="stepDir(-10)">-10</button>
-                                <input type="text" inputmode="numeric" id="calc-wd" class="wind-iso-input" placeholder="deg" oninput="runCalc()" onblur="formatDir()" maxlength="3">
-                                <button class="wind-iso-btn" onclick="stepDir(10)">+10</button>
-                            </div>
-                        </div>
-                        <div style="flex:1.2;">
-                            <div class="wind-iso-header" style="justify-content:space-between; margin-bottom:4px;">
-                                <span class="wind-iso-label" style="margin:0;">SPEED</span>
-                                <div id="wind-iso-switch">
-                                    <div id="u-kt" class="active" onclick="setUnit('kt')">KT</div>
-                                    <div id="u-m" onclick="setUnit('m')">m/s</div>
-                                </div>
-                            </div>
-                            <input type="number" id="calc-ws" class="wind-iso-input" placeholder="kt" oninput="runCalc()">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="wind-iso-grid">
-                    <div class="wind-iso-res-card">
-                        <span class="wind-iso-label">HEAD / TAIL</span>
-                        <div><span id="res-hw" class="wind-iso-val">--</span><span style="font-size:0.8rem; color:#94a3b8;">kt</span></div>
-                    </div>
-                    <div class="wind-iso-res-card">
-                        <span class="wind-iso-label">CROSS WIND</span>
-                        <div><span id="res-xw" class="wind-iso-val">--</span><span style="font-size:0.8rem; color:#94a3b8;">kt</span></div>
-                    </div>
-                </div>
-
-                <div id="status-display" style="text-align:center; padding:10px; margin-top:10px; border-radius:10px; border:1px solid #334155; color:#94a3b8;">--</div>
-
-                <div class="wind-iso-section">
-                    <div class="wind-iso-header"><span>⚠️</span>LIMIT CONFIG (KT)</div>
-                    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:6px;">
-                        <div class="wind-iso-res-card"><span class="wind-iso-label">HEAD</span><input type="number" id="lim-hw" style="background:transparent; border:none; color:#f59e0b; font-weight:900; width:100%; text-align:center; font-size:1rem;" value="25" oninput="saveLimit('hw', this.value)"></div>
-                        <div class="wind-iso-res-card"><span class="wind-iso-label">TAIL</span><input type="number" id="lim-tw" style="background:transparent; border:none; color:#f59e0b; font-weight:900; width:100%; text-align:center; font-size:1rem;" value="10" oninput="saveLimit('tw', this.value)"></div>
-                        <div class="wind-iso-res-card"><span class="wind-iso-label">CROSS</span><input type="number" id="lim-xw" style="background:transparent; border:none; color:#f59e0b; font-weight:900; width:100%; text-align:center; font-size:1rem;" value="30" oninput="saveLimit('xw', this.value)"></div>
                     </div>
                 </div>
             </div>
 
-            <div id="wind-iso-right">
-                <div style="padding:15px 20px 8px 20px; border-bottom:1px solid #334155; background:#0b1120;">
-                    <span style="font-size:0.8rem; font-weight:900; color:#3b82f6; display:block; margin-bottom:8px;">LIMIT ANALYSIS (360°)</span>
-                    <div style="display:grid; grid-template-columns:0.7fr 1fr 1fr 1fr; padding:6px; background:rgba(59,130,246,0.1); color:#3b82f6; font-size:0.6rem; font-weight:900; border-radius:6px; text-align:center;">
-                        <div>WIND</div><div>XW-MAX</div><div>HW/TW</div><div>LIMIT</div>
+            <div class="wind-v5-section">
+                <div class="wind-v5-sec-header"><span>💨</span>WIND DATA</div>
+                <div class="wind-v5-row">
+                    <div class="wind-v5-col" style="flex:1.8;">
+                        <div class="card-head"><span class="wind-v5-label">DIRECTION (°)</span></div>
+                        <div class="wind-v5-stepper">
+                            <button class="wind-v5-step-btn" onclick="stepDir(-10)">-10</button>
+                            <input type="text" inputmode="numeric" id="calc-wd" class="wind-v5-input" placeholder="deg" oninput="runCalc()" onblur="formatDir()" maxlength="3">
+                            <button class="wind-v5-step-btn" onclick="stepDir(10)">+10</button>
+                        </div>
+                    </div>
+                    <div class="wind-v5-col" style="flex:1.2;">
+                        <div class="card-head">
+                            <span class="wind-v5-label">SPEED</span>
+                            <div class="wind-v5-switch">
+                                <div id="u-kt" class="wind-v5-unit-btn active" onclick="setUnit('kt')">KT</div>
+                                <div id="u-m" class="wind-v5-unit-btn" onclick="setUnit('m')">m/s</div>
+                            </div>
+                        </div>
+                        <input type="number" id="calc-ws" class="wind-v5-input" placeholder="kt" oninput="runCalc()">
                     </div>
                 </div>
-                <div id="chart-rows" style="flex-grow:1; overflow-y:auto; padding:8px 20px; display:flex; flex-direction:column; gap:4px;"></div>
+            </div>
+
+            <div class="wind-v5-res-grid">
+                <div class="wind-v5-res-card">
+                    <span class="wind-v5-label">HEAD / TAIL</span>
+                    <div><span id="res-hw" class="wind-v5-res-val">--</span><span style="color:#94a3b8; font-size:0.8rem; margin-left:3px;">kt</span></div>
+                </div>
+                <div class="wind-v5-res-card">
+                    <span class="wind-v5-label">CROSS WIND</span>
+                    <div><span id="res-xw" class="wind-v5-res-val">--</span><span style="color:#94a3b8; font-size:0.8rem; margin-left:3px;">kt</span></div>
+                </div>
+            </div>
+            <div id="status-display" class="wind-v5-status">--</div>
+
+            <div class="wind-v5-section">
+                <div class="wind-v5-sec-header"><span>⚠️</span>LIMIT CONFIG (KT)</div>
+                <div class="wind-v5-limit-grid">
+                    <div class="wind-v5-limit-box"><span class="wind-v5-label">HEAD</span><input type="number" id="lim-hw" class="wind-v5-limit-inp" value="25" oninput="saveLimit('hw', this.value)"></div>
+                    <div class="wind-v5-limit-box"><span class="wind-v5-label">TAIL</span><input type="number" id="lim-tw" class="wind-v5-limit-inp" value="10" oninput="saveLimit('tw', this.value)"></div>
+                    <div class="wind-v5-limit-box"><span class="wind-v5-label">CROSS</span><input type="number" id="lim-xw" class="wind-v5-limit-inp" value="30" oninput="saveLimit('xw', this.value)"></div>
+                </div>
             </div>
         </div>
-    </div>
 
+        <div class="wind-v5-right">
+            <div class="wind-v5-chart-top">
+                <span class="wind-v5-chart-title">LIMIT ANALYSIS (360°)</span>
+                <div class="wind-v5-row-head"><div>WIND</div><div>XW-MAX</div><div>HW/TW</div><div>LIMIT</div></div>
+            </div>
+            <div id="chart-rows" class="wind-v5-chart-scroll"></div>
+        </div>
+    </div>
+</div>
     <div id="modal-perf" class="modal-overlay" onclick="closeModal('perf')">
         <div id="perf-iso-wrapper" onclick="event.stopPropagation()">
             
@@ -1248,10 +1232,11 @@
 </div>
 
 <div id="modal-log" class="modal-overlay" onclick="closeModal('log')">
-    <div class="modal-card" style="width: 700px !important; max-width: 95vw;" onclick="event.stopPropagation()">
+    <div class="modal-card" style="width: 700px !important; max-width: 95vw; max-height: 95vh; display: flex; flex-direction: column; overflow: hidden;" onclick="event.stopPropagation()">
+        
         <div class="m-head">
             PERSONAL LOG
-            <div style="font-size:0.7rem; color:#94a3b8;">JCAB FORMAT</div>
+            <div style="font-size:0.7rem; color:#94a3b8; font-weight:400;">JCAB FORMAT</div>
         </div>
         
         <div class="log-layout">
@@ -1259,9 +1244,9 @@
                 <div class="log-info-col">
                     <span class="log-label-mini">DATE / FLT / SHIP</span>
                     <div style="display:flex; gap:10px; align-items:baseline;">
-                        <span id="log-date" class="log-info-text" style="color:var(--primary);">--:--</span>
+                        <span id="log-date" class="log-info-text" style="color:var(--primary);">--/--</span>
                         <span id="log-flt" class="log-info-text">JL----</span>
-                        <span id="log-ship" class="log-info-text" style="color:var(--accent); cursor:pointer; text-decoration:underline;" onclick="openShipInput()">JA----</span>
+                        <span id="log-ship" class="log-info-text" style="color:var(--accent); cursor:pointer; text-decoration:underline;" onclick="openShipInput()">JA----J</span>
                     </div>
                 </div>
                 <div class="log-info-col" style="align-items:center;">
@@ -1340,15 +1325,27 @@
                 </div>
             </div>
             
-            <textarea id="log-memo" class="log-memo-area" placeholder="Remarks..." oninput="updatePreview()"></textarea>
+            <textarea id="log-memo" class="log-memo-area" placeholder="Remarks..." oninput="updateLogMemo(this.value)"></textarea>
 
             <div class="logbook-preview">
-                <div id="log-preview-text" class="preview-text">Loading...</div>
-                <button class="copy-btn-lg" onclick="copyLogbookFormat()">
-                    <span>📋 COPY</span>
+                <div id="log-preview-header" class="preview-text" style="color:var(--muted); border-bottom:1px solid #334155; padding-bottom:5px; margin-bottom:5px; opacity:0.7;"></div>
+                <div id="log-preview-text" class="preview-text" style="font-weight:700; color:var(--text);">Loading...</div>
+                
+                <div style="display: flex; gap: 10px; margin-top: 10px;">
+                    <button class="copy-btn-lg" onclick="copyLogbookFormat()" style="flex: 1; margin-top: 0;">
+                        <span>📋 COPY ROW</span>
+                    </button>
+                    <button class="copy-btn-lg" onclick="downloadHistoryCsv()" style="flex: 1; margin-top: 0; background: var(--success); color: #020617;">
+                        <span>💾 CSV EXPORT</span>
+                    </button>
+                </div>
+
+                <button class="copy-btn-lg" onclick="openHistoryManager()" style="width: 100%; margin-top: 10px; background: #475569; color: white;">
+                    <span>📖 MANAGE HISTORY (EDIT/DEL)</span>
                 </button>
             </div>
         </div>
+        
         <button class="m-close" onclick="closeModal('log')">CLOSE</button>
     </div>
 </div>
@@ -1367,6 +1364,107 @@
             <button class="np-btn del" onclick="logNpBack()">⌫</button>
             <button class="np-btn cancel" onclick="logNpClear()">CLR</button>
             <button class="np-btn confirm" onclick="logNpConfirm()">ENTER</button>
+        </div>
+    </div>
+</div>
+
+<div id="modal-history" class="modal-overlay" onclick="closeModal('history')">
+    <div class="modal-card" style="width: 700px; height: 90vh; display: flex; flex-direction: column;" onclick="event.stopPropagation()">
+        <div class="m-head">HISTORY MANAGER</div>
+        
+        <div id="hist-list-view" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 10px 0;">
+            </div>
+
+        <div id="hist-editor-view" style="display: none; flex: 1; overflow-y: auto; flex-direction: column; gap: 10px;">
+            <div class="log-info-row" style="background:rgba(255,255,255,0.05);">
+                <span class="log-label-mini">EDITING RECORD</span>
+                <input type="hidden" id="hist-edit-idx">
+            </div>
+            
+            <div class="log-grid-row">
+                <div class="input-styled"><span class="log-label">DATE</span><input type="text" id="he-date" class="clean-input"></div>
+                <div class="input-styled"><span class="log-label">FLT</span><input type="text" id="he-flt" class="clean-input"></div>
+            </div>
+            <div class="log-grid-row">
+                <div class="input-styled"><span class="log-label">SHIP</span><input type="text" id="he-ship" class="clean-input"></div>
+                <div class="input-styled"><span class="log-label">DEP</span><input type="text" id="he-dep" class="clean-input"></div>
+                <div class="input-styled"><span class="log-label">ARR</span><input type="text" id="he-arr" class="clean-input"></div>
+            </div>
+            <div class="log-grid-row">
+                <div class="input-styled"><span class="log-label">OUT</span><input type="text" id="he-out" class="clean-input"></div>
+                <div class="input-styled"><span class="log-label">IN</span><input type="text" id="he-in" class="clean-input"></div>
+                <div class="input-styled"><span class="log-label">BLK</span><input type="text" id="he-blk" class="clean-input"></div>
+            </div>
+            
+            <div class="log-section-title">TIMES & ROLES</div>
+            <div class="log-grid-row">
+                <div class="input-styled"><span class="log-label">PIC</span><input type="text" id="he-pic" class="clean-input"></div>
+                <div class="input-styled"><span class="log-label">PIC X/C</span><input type="text" id="he-picxc" class="clean-input"></div>
+                <div class="input-styled"><span class="log-label">PIC NGT</span><input type="text" id="he-picngt" class="clean-input"></div>
+            </div>
+            <div class="log-grid-row">
+                <div class="input-styled"><span class="log-label">CO</span><input type="text" id="he-co" class="clean-input"></div>
+                <div class="input-styled"><span class="log-label">CO X/C</span><input type="text" id="he-coxc" class="clean-input"></div>
+                <div class="input-styled"><span class="log-label">CO NGT</span><input type="text" id="he-congt" class="clean-input"></div>
+            </div>
+            <div class="log-grid-row">
+                <div class="input-styled"><span class="log-label">INST</span><input type="text" id="he-inst" class="clean-input"></div>
+                <div class="input-styled"><span class="log-label">T/O</span><input type="text" id="he-to" class="clean-input"></div>
+                <div class="input-styled"><span class="log-label">LDG</span><input type="text" id="he-ldg" class="clean-input"></div>
+            </div>
+            <div class="input-styled">
+                <span class="log-label">REMARKS</span>
+                <input type="text" id="he-memo" class="clean-input" style="text-align:left;">
+            </div>
+
+            <div style="display:flex; gap:10px; margin-top:20px;">
+                <button class="copy-btn-lg" onclick="cancelHistoryEdit()" style="background:#475569;">CANCEL</button>
+                <button class="copy-btn-lg" onclick="saveHistoryEdit()" style="background:var(--success); color:#020617;">SAVE CHANGES</button>
+            </div>
+        </div>
+
+        <button class="m-close" onclick="closeModal('history')">CLOSE</button>
+    </div>
+</div>
+
+<div id="modal-export" class="modal-overlay" onclick="closeModal('export')">
+    <div class="modal-card" style="width: 400px; height: auto;" onclick="event.stopPropagation()">
+        <div class="m-head">CSV EXPORT SETTINGS</div>
+        
+        <div style="padding: 20px 0; display:flex; flex-direction:column; gap:15px;">
+            <div class="input-styled">
+                <span class="log-label">FROM</span>
+                <input type="date" id="exp-from" class="clean-input" style="text-align:left; font-family:'Inter'; font-size:1rem;">
+            </div>
+            
+            <div class="input-styled">
+                <span class="log-label">TO</span>
+                <input type="date" id="exp-to" class="clean-input" style="text-align:left; font-family:'Inter'; font-size:1rem;">
+            </div>
+        </div>
+
+        <button class="copy-btn-lg" onclick="executeExport()" style="background: var(--success); color:#020617; margin-bottom:10px;">
+            <span>💾 DOWNLOAD CSV</span>
+        </button>
+        
+        <button class="m-close" onclick="closeModal('export')">CANCEL</button>
+    </div>
+</div>
+
+<div id="modal-wind-numpad" class="modal-overlay" onclick="closeWindNumpad()">
+    <div class="numpad-card" onclick="event.stopPropagation()">
+        <div class="np-header">
+            <span id="wind-np-label">INPUT</span>
+            <span id="wind-np-val"></span>
+        </div>
+        <div class="np-grid">
+            <button onclick="windNpInput('7')">7</button><button onclick="windNpInput('8')">8</button><button onclick="windNpInput('9')">9</button>
+            <button onclick="windNpInput('4')">4</button><button onclick="windNpInput('5')">5</button><button onclick="windNpInput('6')">6</button>
+            <button onclick="windNpInput('1')">1</button><button onclick="windNpInput('2')">2</button><button onclick="windNpInput('3')">3</button>
+            <button onclick="windNpInput('0')" class="zero">0</button>
+            <button onclick="windNpClear()" class="del" style="color:#f59e0b !important;">C</button>
+            <button onclick="windNpBack()" class="del">⌫</button>
+            <button onclick="windNpConfirm()" class="np-ok" style="grid-column: span 2;">ENTER</button>
         </div>
     </div>
 </div>

@@ -3,7 +3,7 @@
    (Requires: flight_db2.js loaded in HTML)
    ============================================================ */
 
-const ITEMS = ["APU", "MEL/ACARS", "WX", "W&B", "ATC CLEARANCE", "FINAL PRE FLIGHT CHECKLIST", "CA", "GND"];
+const ITEMS = ["APU", "MEL/ACARS", "WX", "W&B", "ATC CLEARANCE", "FINAL PREFLT CKLIST", "CA", "GND"];
 const SP_DATA = [{c:"WCHC",l:"WCHC"},{c:"WCHS",l:"WCHS"},{c:"STCR",l:"STCR"},{c:"INF",l:"INFANT"}];
 
 // ↓↓↓ ここに取得したCheckWXのAPIキーを貼り付けてください ↓↓↓
@@ -561,14 +561,15 @@ function refreshWx() {
     fetchWxData(target);
 }
 
-/* ============================================================
-   MODULE: WIND CALCULATOR (With DEP/ARR Loading)
-   ============================================================ */
+/* =========================================
+   WIND CALCULATOR v5.10 LOGIC
+   (Added/Updated for UI Fix)
+   ========================================= */
 
-// 滑走路データベース (ユーザー提供データ)
+// --- DATABASE ---
 const RUNWAY_DB = {
-    "HND": { "34R": 337, "16L": 157, "34L": 337, "16R": 157, "05": 51, "23": 231, "04": 42, "22": 222 },
-    "NRT": { "16R": 157, "34L": 337, "16L": 157, "34R": 337 },
+    "HND": { "34R": 337, "16L": 157, "34L": 337, "16R": 157, "05": 47, "23": 227, "04": 42, "22": 222 },
+    "NRT": { "16R": 164, "34L": 344, "16L": 164, "34R": 344 },
     "ITM": { "14R": 142, "32L": 322, "14L": 142, "32R": 322 },
     "KIX": { "06R": 59,  "24L": 239, "06L": 59,  "24R": 239 },
     "CTS": { "01L": 6,   "19R": 186, "01R": 6,   "19L": 186 },
@@ -625,87 +626,25 @@ const RUNWAY_DB = {
 
 let windUnit = 'kt';
 let userLimits = { hw: 25, tw: 10, xw: 30 };
-let currentWindMode = 'takeoff'; // 'takeoff' or 'landing'
 
-// 初期化（window.onloadから呼ばれる）
+// 初期化関数：HTMLロード時に呼び出す必要があれば適宜呼んでください
+// 現在のHTML構造では、モーダルを開くタイミングなどで initWindCalc() を呼ぶと良いでしょう
 function initWindCalc() {
-    // デフォルトでTAKEOFFモードにする
-    setWindMode('takeoff');
-    
-    // リミット値の初期セット
-    const hwLim = document.getElementById('lim-hw');
-    const twLim = document.getElementById('lim-tw');
-    const xwLim = document.getElementById('lim-xw');
-    if(hwLim) hwLim.value = userLimits.hw;
-    if(twLim) twLim.value = userLimits.tw;
-    if(xwLim) xwLim.value = userLimits.xw;
-}
-
-// モード切り替え & 空港データ読み込み
-function setWindMode(mode) {
-    currentWindMode = mode;
-    
-    // 1. ボタンの見た目を更新
-    const btnTo = document.getElementById('btn-wind-to');
-    const btnLdg = document.getElementById('btn-wind-ldg');
-    if(btnTo && btnLdg) {
-        if(mode === 'takeoff') {
-            btnTo.classList.add('active');
-            btnLdg.classList.remove('active');
-        } else {
-            btnTo.classList.remove('active');
-            btnLdg.classList.add('active');
-        }
-    }
-
-    // 2. 現在のLEG情報から空港コードを取得
-    const l = state.legs[state.idx];
-    let targetApt = (mode === 'takeoff') ? l.dep : l.arr;
-    
-    // 3. 空港コードを使ってセレクトボックスを更新
-    loadRunways(targetApt);
-}
-
-// 滑走路セレクトボックスの生成
-function loadRunways(aptCode) {
     const rwySelect = document.getElementById('calc-rwy-sel');
-    if(!rwySelect) return;
-
-    rwySelect.innerHTML = "";
+    if(!rwySelect) return; // 要素がなければ何もしない
     
-    // DBに該当空港があるかチェック
-    if (aptCode && RUNWAY_DB[aptCode]) {
-        // 空港の滑走路を追加
-        const rwys = RUNWAY_DB[aptCode];
+    rwySelect.innerHTML = ""; // クリア
+
+    for (const [code, rwys] of Object.entries(RUNWAY_DB)) {
         const grp = document.createElement('optgroup');
-        grp.label = aptCode; // グループ名に空港コードを表示
-        
-        let firstVal = null;
+        grp.label = code;
         for (const [rwy, hdg] of Object.entries(rwys)) {
             const opt = document.createElement('option');
-            opt.value = hdg; 
-            opt.text = `${aptCode} ${rwy}`; // 例: HND 34R
+            opt.value = hdg; opt.text = `${code} ${rwy}`;
             grp.appendChild(opt);
-            if(firstVal === null) firstVal = hdg;
         }
         rwySelect.appendChild(grp);
-        
-        // 最初の滑走路を選択状態にする
-        if(firstVal !== null) {
-            rwySelect.value = firstVal;
-        }
-
-    } else {
-        // DBにない場合
-        const grp = document.createElement('optgroup');
-        grp.label = aptCode || "UNKNOWN";
-        const opt = document.createElement('option');
-        opt.disabled = true;
-        opt.text = "NO DB DATA";
-        grp.appendChild(opt);
     }
-
-    // マニュアル入力用オプションを常に追加
     const manGrp = document.createElement('optgroup');
     manGrp.label = "MANUAL";
     const optMan = document.createElement('option');
@@ -713,20 +652,15 @@ function loadRunways(aptCode) {
     manGrp.appendChild(optMan);
     rwySelect.appendChild(manGrp);
 
-    // ヘディング入力欄を更新
+    // Default HND for visual check
+    rwySelect.value = 337; 
     updateHdgFromSel();
+    
+    // Limits
+    if(document.getElementById('lim-hw')) document.getElementById('lim-hw').value = userLimits.hw;
+    if(document.getElementById('lim-tw')) document.getElementById('lim-tw').value = userLimits.tw;
+    if(document.getElementById('lim-xw')) document.getElementById('lim-xw').value = userLimits.xw;
 }
-
-function updateHdgFromSel() {
-    const sel = document.getElementById('calc-rwy-sel');
-    // マニュアル入力(value=0)以外なら、Heading入力を自動更新
-    if (sel.value && sel.value !== "0") {
-        document.getElementById('calc-hdg').value = String(sel.value).padStart(3, '0');
-    }
-    runCalc();
-}
-
-// --- 以下、計算ロジック（既存のまま） ---
 
 function formatHdg() {
     const el = document.getElementById('calc-hdg');
@@ -748,10 +682,18 @@ function formatDir() {
     }
 }
 
+function updateHdgFromSel() {
+    const sel = document.getElementById('calc-rwy-sel');
+    if (sel && sel.value && sel.value !== "0") {
+        document.getElementById('calc-hdg').value = String(sel.value).padStart(3, '0');
+    }
+    runCalc();
+}
+
 function setUnit(u) {
     windUnit = u;
-    document.getElementById('u-kt').className = (u === 'kt') ? 'active' : '';
-    document.getElementById('u-m').className = (u === 'm') ? 'active' : '';
+    document.getElementById('u-kt').className = (u === 'kt') ? 'unit-btn active' : 'unit-btn';
+    document.getElementById('u-m').className = (u === 'm') ? 'unit-btn active' : 'unit-btn';
     document.getElementById('calc-ws').placeholder = (u === 'kt') ? 'kt' : 'm/s';
     runCalc();
 }
@@ -781,7 +723,6 @@ function stepHdg(amount) {
 function saveLimit(type, val) {
     userLimits[type] = parseInt(val) || 0;
     runCalc();
-    saveData();
 }
 
 function safeCeil(val) {
@@ -790,35 +731,42 @@ function safeCeil(val) {
     return Math.ceil(val);
 }
 
+/* =========================================
+   WIND CALC LOGIC UPDATE (STATUS FIX)
+   ========================================= */
+
+// 既存のrunCalcを上書きして、確実に新しいクラス名を適用する
 function runCalc() {
     const rwyHdg = parseInt(document.getElementById('calc-hdg').value);
     const windDir = parseInt(document.getElementById('calc-wd').value);
     let windSpd = parseInt(document.getElementById('calc-ws').value);
-    
     const hwEl = document.getElementById('res-hw');
     const xwEl = document.getElementById('res-xw');
     const stEl = document.getElementById('status-display');
     
+    // updateHdgFromSel関数等が未定義の場合のガード
     const rwySel = document.getElementById('calc-rwy-sel');
     let rwyName = "";
-    if (rwySel && rwySel.selectedIndex >= 0) {
-        const txt = rwySel.options[rwySel.selectedIndex].text;
-        // "HND 34R" -> "34R" を抽出、 "MANUAL INPUT" -> ""
-        if(txt !== "MANUAL INPUT" && txt !== "NO DB DATA") {
-            rwyName = txt.split(' ').pop();
-        }
+    if(rwySel && rwySel.selectedIndex >= 0) {
+         rwyName = rwySel.options[rwySel.selectedIndex]?.text.split(' ').pop() || "";
+         if(rwyName === "INPUT") rwyName = "";
     }
 
+    // データ不足時の表示
     if (isNaN(rwyHdg) || isNaN(windDir) || isNaN(windSpd)) {
         if(hwEl) hwEl.innerText = "--"; 
         if(xwEl) xwEl.innerText = "--";
-        if(stEl) { stEl.className = "status-neutral"; stEl.innerText = "--"; } // CSSクラス名を修正
-        drawVisual(null, null, null, null); 
-        renderChart(); 
+        if(stEl) { 
+            // ★ここ重要：新しいクラス名をセット
+            stEl.className = "wind-v5-status"; 
+            stEl.innerText = "--"; 
+        }
+        if(typeof drawVisual === 'function') drawVisual(null, null, null, null); 
+        if(typeof renderChart === 'function') renderChart(); 
         return;
     }
 
-    drawVisual(rwyHdg, windDir, windSpd, rwyName);
+    if(typeof drawVisual === 'function') drawVisual(rwyHdg, windDir, windSpd, rwyName);
 
     if (windUnit === 'm') windSpd = windSpd * 1.94384;
     
@@ -844,39 +792,44 @@ function runCalc() {
 
     let isLimitOver = false;
 
+    // 結果表示と色付け
     if (hwRaw >= 0) {
         hwEl.innerText = `HEAD ${hwComp}`;
-        if (hwComp > userLimits.hw) { hwEl.className = "wind-iso-val col-danger"; isLimitOver = true; }
-        else { hwEl.className = "wind-iso-val col-safe"; }
+        if (hwComp > userLimits.hw) { hwEl.className = "wind-v5-res-val col-danger"; isLimitOver = true; }
+        else { hwEl.className = "wind-v5-res-val col-safe"; }
     } else {
         hwEl.innerText = `TAIL ${twComp}`;
-        if (twComp > userLimits.tw) { hwEl.className = "wind-iso-val col-danger"; isLimitOver = true; }
-        else { hwEl.className = (twComp > userLimits.tw * 0.8) ? "wind-iso-val col-warn" : "wind-iso-val col-safe"; }
+        if (twComp > userLimits.tw) { hwEl.className = "wind-v5-res-val col-danger"; isLimitOver = true; }
+        else { hwEl.className = (twComp > userLimits.tw * 0.8) ? "wind-v5-res-val col-warn" : "wind-v5-res-val col-safe"; }
     }
 
     if (side) xwEl.innerText = `${xwComp} ${side}`; else xwEl.innerText = `${xwComp}`;
-    if (xwComp > userLimits.xw) { xwEl.className = "wind-iso-val col-danger"; isLimitOver = true; }
-    else { xwEl.className = (xwComp > userLimits.xw * 0.8) ? "wind-iso-val col-warn" : "wind-iso-val"; }
+    if (xwComp > userLimits.xw) { xwEl.className = "wind-v5-res-val col-danger"; isLimitOver = true; }
+    else { xwEl.className = (xwComp > userLimits.xw * 0.8) ? "wind-v5-res-val col-warn" : "wind-v5-res-val"; }
 
+    // ★ここ重要：ステータスボックスのクラス切り替え
     if (isLimitOver) {
-        stEl.className = "status-danger"; stEl.innerText = "LIMIT OVER";
+        stEl.className = "wind-v5-status danger"; 
+        stEl.innerText = "LIMIT OVER";
     } else {
-        stEl.className = "status-safe"; stEl.innerText = "WITHIN LIMIT";
+        stEl.className = "wind-v5-status safe"; 
+        stEl.innerText = "WITHIN LIMIT";
     }
-    stEl.style.borderRadius = "10px"; stEl.style.padding="10px"; stEl.style.textAlign="center"; stEl.style.fontWeight="900"; // スタイル補強
     
-    renderChart();
+    if(typeof renderChart === 'function') renderChart();
 }
 
 function renderChart() {
     const rwyHdg = parseInt(document.getElementById('calc-hdg').value);
-    if(isNaN(rwyHdg)) return;
+    const container = document.getElementById('chart-rows');
+    
+    if(!container) return;
+    if(isNaN(rwyHdg)) { container.innerHTML = ""; return; }
 
     let curWindSpd = parseInt(document.getElementById('calc-ws').value) || 0;
     if (windUnit === 'm') curWindSpd *= 1.94384;
     let curWindDir = parseInt(document.getElementById('calc-wd').value);
 
-    const container = document.getElementById('chart-rows');
     container.innerHTML = "";
     
     for (let wd = 10; wd <= 360; wd += 10) {
@@ -943,7 +896,8 @@ function renderChart() {
 
 function drawVisual(rwyHdg, windDir, windSpd, rwyName) {
     const canvas = document.getElementById('wind-canvas');
-    if (!canvas) return;
+    if(!canvas) return;
+    
     const ctx = canvas.getContext('2d');
     const w = canvas.width; const h = canvas.height; const cx = w / 2; const cy = h / 2;
     ctx.clearRect(0, 0, w, h);
@@ -958,25 +912,23 @@ function drawVisual(rwyHdg, windDir, windSpd, rwyName) {
     ctx.fillStyle = "#64748b"; ctx.fillRect(-45, -6, 90, 12);
     ctx.strokeStyle = "#ffffff"; ctx.setLineDash([4, 4]); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-35, 0); ctx.lineTo(35, 0); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(45, 0); ctx.lineTo(35, -6); ctx.lineTo(35, 6); ctx.fill();
-    
     if (rwyName) {
         ctx.fillStyle = "#ffffff"; ctx.font = "900 11px Inter"; ctx.textAlign = "center"; ctx.textBaseline = "middle";
         ctx.save(); ctx.translate(-38, 0); ctx.rotate(Math.PI/2); ctx.fillText(rwyName, 0, 0); ctx.restore();
     }
     ctx.restore();
 
-    if(windDir !== null && windSpd !== null) {
-        ctx.save(); ctx.translate(cx, cy); ctx.rotate((windDir - 90) * Math.PI / 180);
-        let arrowLen = Math.min(windSpd * 1.5, 60); if(arrowLen < 25) arrowLen = 25;
-        ctx.strokeStyle = "#06b6d4"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(arrowLen, 0); ctx.lineTo(10, 0); ctx.stroke();
-        ctx.fillStyle = "#06b6d4"; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(10, -5); ctx.lineTo(10, 5); ctx.fill();
-        ctx.restore();
-    }
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate((windDir - 90) * Math.PI / 180);
+    let arrowLen = Math.min(windSpd * 1.5, 60); if(arrowLen < 25) arrowLen = 25;
+    ctx.strokeStyle = "#06b6d4"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(arrowLen, 0); ctx.lineTo(10, 0); ctx.stroke();
+    ctx.fillStyle = "#06b6d4"; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(10, -5); ctx.lineTo(10, 5); ctx.fill();
+    ctx.restore();
 }
 
-/* ============================================================
-   MODULE: LDG PERFORMANCE (Ported Logic)
-   ============================================================ */
+// 最後に初期化を実行
+// (DOMがすでに読み込まれていると仮定。もし動かない場合は window.onload 等で囲んでください)
+initWindCalc();
+
 
 /* ============================================================
    MODULE: LDG PERFORMANCE (DB UPDATED)
@@ -2537,68 +2489,6 @@ function convNpInput(n) {
     document.getElementById('conv-np-val').innerText = convNpVal;
 }
 
-/* ============================================================
-   MODULE: CONVERTER NUMPAD LOGIC
-   ============================================================ */
-let convNpKey = "";
-let convNpVal = "";
-
-function openConvNumpad(key) {
-    convNpKey = key;
-    convNpVal = ""; // Reset
-    
-    // ラベル設定
-    let label = "VALUE";
-    if (key === 'conv-alt') label = "ALTITUDE (FT)";
-    if (key === 'conv-ias') label = "CAS (KT)";
-    if (key === 'conv-mach') label = "MACH No.";
-    
-    document.getElementById('conv-np-label').innerText = label;
-    document.getElementById('conv-np-val').innerText = "";
-    
-    document.getElementById('modal-conv-numpad').classList.add('active');
-}
-
-function closeConvNumpad() {
-    document.getElementById('modal-conv-numpad').classList.remove('active');
-}
-
-function convNpInput(n) {
-    // 文字数制限 (Machは小数点含め長くても5文字程度、Altは5桁)
-    if (convNpVal.length < 6) convNpVal += n;
-    document.getElementById('conv-np-val').innerText = convNpVal;
-}
-
-function convNpClear() {
-    convNpVal = "";
-    document.getElementById('conv-np-val').innerText = "";
-}
-
-function convNpBack() {
-    convNpVal = convNpVal.slice(0, -1);
-    document.getElementById('conv-np-val').innerText = convNpVal;
-}
-
-function convNpConfirm() {
-    if (convNpVal !== "") {
-        const floatVal = parseFloat(convNpVal);
-        if (!isNaN(floatVal)) {
-            // 値を入力欄にセット
-            document.getElementById(convNpKey).value = convNpVal;
-            
-            // 入力された項目に応じて計算を実行
-            if (convNpKey === 'conv-ias') {
-                calcConv('ias');
-            } else if (convNpKey === 'conv-mach') {
-                calcConv('mach');
-            } else {
-                // Altitude変更時は関係維持で再計算
-                calcConv('maintain');
-            }
-        }
-    }
-    closeConvNumpad();
-}
 
 // === DATA PERSISTENCE (AUTO SAVE/LOAD) ===
 const STORAGE_KEY = "copilot_v2_data";
@@ -2991,156 +2881,199 @@ function saNpConfirm() {
 }
 
 /* ============================================================
-   PERSONAL LOG MODULE (Integrated v10)
+   PERSONAL LOG & SYSTEM MODULE (FINAL: FLT+TO/LDG LAYOUT)
    ============================================================ */
 
-let logRole = 'CO';
-let assign = { to: 'pf', ldg: 'pf' };
-let cond = { to: 'day', ldg: 'day' };
+var logRole = 'CO';
+var assign = { to: 'pm', ldg: 'pm' };
+var cond = { to: 'day', ldg: 'day' };
 
-let logNpTargetId = null;
-let logNpVal = "";
-let logNpMode = 'number';
+var logNpTargetId = null;
+var logNpVal = "";
+var logNpMode = 'number';
 
 function initLog() {
-    // 1. 日付の自動セット (DD:MM)
-    const today = new Date();
-    const dd = String(today.getDate()).padStart(2, '0');
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    document.getElementById('log-date').innerText = `${dd}:${mm}`;
-    
-    // 2. ダッシュボード情報の自動取得
-    let fltNum = "----";
-    let shipNum = "----";
-    let depAp = "----";
-    let arrAp = "----";
+    if (!state.legs || !state.legs[state.idx]) return;
 
-    if (typeof state !== 'undefined' && state.legs && state.legs[state.idx]) {
-        const leg = state.legs[state.idx];
-        if (leg.flightNo) fltNum = leg.flightNo;
-        if (leg.ship) shipNum = leg.ship;
-        if (leg.dep) depAp = leg.dep;
-        if (leg.arr) arrAp = leg.arr;
+    if (!state.legs[state.idx].logData) {
+        state.legs[state.idx].logData = {
+            role: 'CO',
+            assign: { to: 'pm', ldg: 'pm' },
+            cond: { to: 'day', ldg: 'day' },
+            out: "", in: "", ngt: "", inst: "", memo: ""
+        };
     }
+    const log = state.legs[state.idx].logData;
 
-    // 3. 画面への反映
-    document.getElementById('log-flt').innerText = "JL" + fltNum;
-    // JA+数字形式で表示（データが空ならJA----）
-    document.getElementById('log-ship').innerText = shipNum.length >= 2 ? "JA" + shipNum : "JA----";
-    document.getElementById('log-dep').value = depAp;
-    document.getElementById('log-arr').value = arrAp;
+    const today = new Date();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const elDate = document.getElementById('log-date');
+    if(elDate) elDate.innerText = `${mm}/${dd}`;
     
-    // プレビュー更新
-    updatePreview();
+    const leg = state.legs[state.idx];
+    const fltNum = leg.flt || "----";
+    const shipNum = leg.ship || "----";
+    const depAp = leg.dep || "";
+    const arrAp = leg.arr || "";
+
+    const elFlt = document.getElementById('log-flt');
+    if(elFlt) elFlt.innerText = "JL" + fltNum;
+    
+    const shipDisp = shipNum.length >= 2 ? "JA" + shipNum + "J" : "JA----J";
+    const elShip = document.getElementById('log-ship');
+    if(elShip) elShip.innerText = shipDisp;
+    
+    const elDep = document.getElementById('log-dep');
+    const elArr = document.getElementById('log-arr');
+    if(elDep) elDep.value = depAp;
+    if(elArr) elArr.value = arrAp;
+
+    if(document.getElementById('log-t-out')) document.getElementById('log-t-out').value = log.out;
+    if(document.getElementById('log-t-in')) document.getElementById('log-t-in').value = log.in;
+    if(document.getElementById('log-t-ngt')) document.getElementById('log-t-ngt').value = log.ngt;
+    if(document.getElementById('log-t-inst')) document.getElementById('log-t-inst').value = log.inst;
+    if(document.getElementById('log-memo')) document.getElementById('log-memo').value = log.memo;
+
+    updateLogUiState(log);
+    calcLogStats();
 }
 
-/* --- UI TOGGLES --- */
+function updateLogUiState(log) {
+    logRole = log.role; 
+    const setClass = (id, cls) => {
+        const el = document.getElementById(id);
+        if(el) el.className = cls;
+    };
+    setClass('btn-role-co', `toggle-btn ${log.role==='CO'?'active':''}`);
+    setClass('btn-role-pus', `toggle-btn ${log.role==='PUS'?'active':''}`);
+    
+    setClass('btn-to-pf', `toggle-btn ${log.assign.to==='pf'?'active':''}`);
+    setClass('btn-to-pm', `toggle-btn ${log.assign.to==='pm'?'active':''}`);
+    setClass('btn-ldg-pf', `toggle-btn ${log.assign.ldg==='pf'?'active':''}`);
+    setClass('btn-ldg-pm', `toggle-btn ${log.assign.ldg==='pm'?'active':''}`);
+    
+    setClass('btn-to-day', `toggle-btn ${log.cond.to==='day'?'active-day':''}`);
+    setClass('btn-to-ngt', `toggle-btn ${log.cond.to==='ngt'?'active-ngt':''}`);
+    setClass('btn-ldg-day', `toggle-btn ${log.cond.ldg==='day'?'active-day':''}`);
+    setClass('btn-ldg-ngt', `toggle-btn ${log.cond.ldg==='ngt'?'active-ngt':''}`);
+}
+
 function setLogRole(role) {
-    logRole = role;
-    document.getElementById('btn-role-co').className = `toggle-btn ${role==='CO'?'active':''}`;
-    document.getElementById('btn-role-pus').className = `toggle-btn ${role==='PUS'?'active':''}`;
-    updatePreview();
+    state.legs[state.idx].logData.role = role;
+    updateLogUiState(state.legs[state.idx].logData);
+    calcLogStats();
+    saveData();
 }
-
 function setAssign(phase, role) {
-    assign[phase] = role;
-    document.getElementById(`btn-${phase}-pf`).className = `toggle-btn ${role==='pf'?'active':''}`;
-    document.getElementById(`btn-${phase}-pm`).className = `toggle-btn ${role==='pm'?'active':''}`;
-    updatePreview();
+    const log = state.legs[state.idx].logData;
+    log.assign[phase] = role;
+    if (log.assign.to === 'pf' && log.assign.ldg === 'pf') {
+        log.role = 'PUS';
+    } else {
+        log.role = 'CO';
+    }
+    updateLogUiState(log);
+    calcLogStats();
+    saveData();
 }
-
 function setCond(phase, c) {
-    cond[phase] = c;
-    const activeClass = (c === 'day') ? 'active-day' : 'active-ngt';
-    document.getElementById(`btn-${phase}-day`).className = `toggle-btn ${c==='day'?activeClass:''}`;
-    document.getElementById(`btn-${phase}-ngt`).className = `toggle-btn ${c==='ngt'?activeClass:''}`;
-    updatePreview();
+    state.legs[state.idx].logData.cond[phase] = c;
+    updateLogUiState(state.legs[state.idx].logData);
+    
+    // ★追加: 条件変更時もプレビューを更新する
+    calcLogStats(); 
+    
+    saveData();
 }
-
-/* --- TIME & SHIP INPUT HELPERS --- */
 function setLogTime(type) {
     const now = new Date();
     const hh = String(now.getUTCHours()).padStart(2, '0');
     const mm = String(now.getUTCMinutes()).padStart(2, '0');
-    document.getElementById(`log-t-${type}`).value = `${hh}:${mm}`;
+    const val = `${hh}:${mm}`;
+    const el = document.getElementById(`log-t-${type}`);
+    if(el) el.value = val;
+    if(state.legs[state.idx].logData) state.legs[state.idx].logData[type] = val;
     calcLogStats();
+    saveData();
 }
-
 function setNgtToBlock() {
-    const blk = document.getElementById('log-res-blk').innerText;
+    const elBlk = document.getElementById('log-res-blk');
+    if (!elBlk) return;
+    const blk = elBlk.innerText;
     if (!blk || blk === "00:00") return;
     const [hh, mm] = blk.split(':');
-    document.getElementById('log-t-ngt').value = `${hh}h${mm}m`;
+    const val = `${hh}h${mm}m`;
+    const elNgt = document.getElementById('log-t-ngt');
+    if(elNgt) elNgt.value = val;
+    if(state.legs[state.idx].logData) state.legs[state.idx].logData.ngt = val;
     updatePreview();
+    saveData();
+}
+function updateLogMemo(val) {
+    if(state.legs[state.idx].logData) {
+        state.legs[state.idx].logData.memo = val;
+        updatePreview();
+        saveData();
+    }
 }
 
-function openShipInput() {
-    // ログ用テンキーを「機番入力モード」で開く (ID: REG_UPDATE)
-    openLogNumpad('REG_UPDATE', 'SHIP No. (4 digits)', 'number');
-}
-
-/* --- LOG NUMPAD CONTROLLER --- */
 function openLogNumpad(id, label, mode) {
     logNpTargetId = id;
     logNpVal = "";
     logNpMode = mode || 'number';
-    document.getElementById('log-np-label').innerText = label;
-    document.getElementById('log-np-val').innerText = "";
-    document.getElementById('modal-log-numpad').classList.add('active');
+    const elLabel = document.getElementById('log-np-label');
+    const elVal = document.getElementById('log-np-val');
+    if(elLabel) elLabel.innerText = label;
+    if(elVal) elVal.innerText = "";
+    const elModal = document.getElementById('modal-log-numpad');
+    if(elModal) elModal.classList.add('active');
 }
-
 function closeLogNumpad() {
-    document.getElementById('modal-log-numpad').classList.remove('active');
+    const elModal = document.getElementById('modal-log-numpad');
+    if(elModal) elModal.classList.remove('active');
 }
-
 function logNpInput(n) {
     if (logNpMode === 'time' || logNpMode === 'duration') {
         if (logNpVal.length < 4) logNpVal += n;
     } else {
         if (logNpVal.length < 6) logNpVal += n;
     }
-    document.getElementById('log-np-val').innerText = logNpVal;
+    const elVal = document.getElementById('log-np-val');
+    if(elVal) elVal.innerText = logNpVal;
 }
-
 function logNpBack() {
     logNpVal = logNpVal.slice(0, -1);
-    document.getElementById('log-np-val').innerText = logNpVal;
+    const elVal = document.getElementById('log-np-val');
+    if(elVal) elVal.innerText = logNpVal;
 }
-
 function logNpClear() {
     logNpVal = "";
-    document.getElementById('log-np-val').innerText = "";
+    const elVal = document.getElementById('log-np-val');
+    if(elVal) elVal.innerText = "";
+}
+
+function openShipInput() {
+    openLogNumpad('REG_UPDATE', 'SHIP No. (4 digits)', 'number');
 }
 
 function logNpConfirm() {
     if(logNpTargetId) {
-        // ▼▼▼ 機番更新の特別処理 ▼▼▼
         if (logNpTargetId === 'REG_UPDATE') {
             if (logNpVal !== "") {
-                const shipVal = logNpVal; // 入力された数字（例: 8001）
-                
-                // データ初期化
-                if (typeof state === 'undefined') state = { legs: [], currentLegIndex: 0 };
-                if (!state.legs) state.legs = [];
-
-                // 現在のレグ以降すべてに機番を反映
+                const shipVal = logNpVal;
                 const startIdx = state.idx || 0;
-                // レグデータが足りない場合は自動生成
                 while (state.legs.length <= startIdx + 3) state.legs.push({});
-
                 for (let i = startIdx; i < state.legs.length; i++) {
                     if (!state.legs[i]) state.legs[i] = {};
                     state.legs[i].ship = shipVal;
                 }
-
-                initLog(); // 画面更新
-                if (typeof saveData === 'function') saveData(); // 保存
+                initLog();
+                saveData();
             }
             closeLogNumpad();
             return;
         }
-        // ▲▲▲ 特別処理ここまで ▲▲▲
-
         let formatted = logNpVal;
         if (logNpVal !== "") {
             if (logNpMode === 'time') {
@@ -3151,22 +3084,32 @@ function logNpConfirm() {
                 formatted = `${p.slice(0,2)}h${p.slice(2,4)}m`;
             }
         }
-        
         const el = document.getElementById(logNpTargetId);
         if(el) {
             el.value = formatted;
-            calcLogStats();
+            if (state.legs[state.idx] && state.legs[state.idx].logData) {
+                const log = state.legs[state.idx].logData;
+                if(logNpTargetId === 'log-t-out') log.out = formatted;
+                if(logNpTargetId === 'log-t-in') log.in = formatted;
+                if(logNpTargetId === 'log-t-ngt') log.ngt = formatted;
+                if(logNpTargetId === 'log-t-inst') log.inst = formatted;
+                calcLogStats();
+                saveData();
+            }
         }
     }
     closeLogNumpad();
 }
 
-/* --- CALCULATIONS --- */
 function calcLogStats() {
-    const outT = document.getElementById('log-t-out').value;
-    const inT = document.getElementById('log-t-in').value;
+    const elOut = document.getElementById('log-t-out');
+    const elIn = document.getElementById('log-t-in');
+    if(!elOut || !elIn) return;
+    const outT = elOut.value;
+    const inT = elIn.value;
     const blk = calcTimeDiff(outT, inT);
-    document.getElementById('log-res-blk').innerText = blk;
+    const elBlk = document.getElementById('log-res-blk');
+    if(elBlk) elBlk.innerText = blk;
     updatePreview();
 }
 
@@ -3183,20 +3126,25 @@ function calcTimeDiff(start, end) {
     return String(h).padStart(2,'0') + ":" + String(m).padStart(2,'0');
 }
 
-/* --- PREVIEW GENERATION (Logbook Format) --- */
+// === UPDATE PREVIEW: LAYOUT CHANGED ===
 function updatePreview() {
-    // 1. データ取得
-    const date = document.getElementById('log-date').innerText; // DD:MM
-    // REG: JAxxxx
+    const elDate = document.getElementById('log-date');
+    if(!elDate) return; 
+
+    // データ準備
+    const date = elDate.innerText;
     const shipDisp = document.getElementById('log-ship').innerText;
-    const reg = shipDisp.includes("JA") ? shipDisp : "JA----";
-    // SHIP: 機種 (B738固定)
+    const reg = shipDisp.includes("JA") ? shipDisp : "JA----J";
     const type = "B738"; 
     
-    // 便名 (JL + 数字)
     const fltDisp = document.getElementById('log-flt').innerText;
     const fltNum = fltDisp.replace("JL", "").trim();
     const flt = "JL" + fltNum;
+
+    // ★ T/O, LDG の値を算出 (PFかつDayなら1, NgtならN1, PMなら空)
+    const legLog = state.legs[state.idx].logData;
+    const valTo = (legLog.assign.to === 'pf') ? (legLog.cond.to==='day'?'1':'N1') : '';
+    const valLdg = (legLog.assign.ldg === 'pf') ? (legLog.cond.ldg==='day'?'1':'N1') : '';
 
     const dep = document.getElementById('log-dep').value.toUpperCase();
     const arr = document.getElementById('log-arr').value.toUpperCase();
@@ -3205,80 +3153,90 @@ function updatePreview() {
     const inT = document.getElementById('log-t-in').value || "";
     const blk = document.getElementById('log-res-blk').innerText;
     
-    // 時間フォーマット整形 (01h30m -> 1:30)
     const formatDur = (val) => {
         if (!val) return "";
         let s = val.replace("h", ":").replace("m", "");
-        // 先頭の0を取る
         if (s.startsWith("0") && s.length === 5) s = s.substring(1);
         return s;
     };
-
-    const ngt = formatDur(document.getElementById('log-t-ngt').value);
-    const inst = formatDur(document.getElementById('log-t-inst').value);
-    const memo = document.getElementById('log-memo').value;
     
-    // 時間の振り分け
-    let picT = "", picXcT = "";
-    let coT = "", coXcT = "";
+    const elNgt = document.getElementById('log-t-ngt');
+    const elInst = document.getElementById('log-t-inst');
+    const elMemo = document.getElementById('log-memo');
+    
+    const rawNgt = elNgt ? formatDur(elNgt.value) : "";
+    const inst = elInst ? formatDur(elInst.value) : "";
+    const memo = elMemo ? elMemo.value : "";
     
     let blkFmt = blk;
     if (blkFmt.startsWith("0") && blkFmt.length === 5) blkFmt = blkFmt.substring(1);
     if (blkFmt === "0:00") blkFmt = "";
 
-    if (logRole === 'PUS') {
-        picT = blkFmt;
-        picXcT = blkFmt; 
-    } else {
-        coT = blkFmt;
-        coXcT = blkFmt;
+    let picT = "", picXcT = "", coT = "", coXcT = "";
+    let picNgt = "", coNgt = "";
+
+    if (logRole === 'PUS') { 
+        picT = blkFmt; picXcT = blkFmt; 
+        picNgt = rawNgt; 
+    } else { 
+        coT = blkFmt; coXcT = blkFmt; 
+        coNgt = rawNgt; 
     }
 
-    // 2. パディング処理
     const pad = (str, len) => (str || "").padEnd(len, " ");
     
     const sDate   = pad(date, 6);
     const sShip   = pad(type, 5);
-    const sReg    = pad(reg, 7);
-    const sDep    = pad(dep, 5); 
-    const sArr    = pad(arr, 5); 
-    const sOut    = pad(outT, 6); 
-    const sIn     = pad(inT, 6);  
-    const sFlt    = pad(flt, 8); // JLxxxx
+    const sReg    = pad(reg, 8); 
+    const sFlt    = pad(flt, 8);
+    // ★ T/O, LDG の表示幅 (4文字分確保)
+    const sToVal  = pad(valTo, 4);
+    const sLdgVal = pad(valLdg, 4);
+
+    const sDep    = pad(dep, 5);
+    const sArr    = pad(arr, 5);
+    const sOut    = pad(outT, 6);
+    const sIn     = pad(inT, 6);
+    
     const sPic    = pad(picT, 6);
     const sPicXc  = pad(picXcT, 6);
     const sCo     = pad(coT, 6);
     const sCoXc   = pad(coXcT, 6);
-    const sNgt    = pad(ngt, 6);
+    const sPicNgt = pad(picNgt, 6);
+    const sCoNgt  = pad(coNgt, 6);
     const sInst   = pad(inst, 6);
 
-    // 3. ヘッダーとデータ (順序: DATE SHIP REG DEP ARR OUT IN FLT ...)
+    // ★ヘッダー更新: FLTの隣に T/O LDG を追加
     const header = 
-        pad("DATE",6) + pad("SHIP",5) + pad("REG",7) + 
+        pad("DATE",6) + pad("SHIP",5) + pad("REG",8) + 
+        pad("FLT",8) + pad("T/O",4) + pad("LDG",4) + // 追加
         pad("DEP",5) + pad("ARR",5) + 
         pad("DEP",6) + pad("ARR",6) + 
-        pad("FLT",8) + 
-        pad("PIC",6) + pad("X/C",6) + 
-        pad("CO",6) + pad("X/C",6) + 
-        pad("NGT",6) + pad("INST",6);
+        pad("PIC",6) + pad("X/C",6) + pad("NGT",6) + 
+        pad("CO",6) + pad("X/C",6) + pad("NGT",6) + 
+        pad("INST",6) + "RMK";
 
+    // ★データ更新
     const data = 
         sDate + sShip + sReg + 
+        sFlt + sToVal + sLdgVal + // 追加
         sDep + sArr + 
         sOut + sIn + 
-        sFlt + 
-        sPic + sPicXc + 
-        sCo + sCoXc + 
-        sNgt + sInst;
+        sPic + sPicXc + sPicNgt + 
+        sCo + sCoXc + sCoNgt + 
+        sInst + (memo ? memo : "");
 
-    let output = header + "\n" + data;
-    if(memo) output += "\nRMK: " + memo;
-
-    document.getElementById('log-preview-text').innerText = output;
+    const elHead = document.getElementById('log-preview-header');
+    const elBody = document.getElementById('log-preview-text');
+    if(elHead) elHead.innerText = header;
+    if(elBody) elBody.innerText = data;
 }
 
 function copyLogbookFormat() {
-    const text = document.getElementById('log-preview-text').innerText;
+    const elBody = document.getElementById('log-preview-text');
+    if (!elBody) return;
+    const text = elBody.innerText;
+    
     if (navigator.clipboard) {
         navigator.clipboard.writeText(text).then(() => alert("COPIED!"));
     } else {
@@ -3290,4 +3248,441 @@ function copyLogbookFormat() {
         document.body.removeChild(ta);
         alert("COPIED!");
     }
+}
+
+function confirmCloseLeg() {
+    closeModal('action');
+    
+    if(!state.legs || !state.legs[state.idx]) return;
+    const leg = state.legs[state.idx];
+    leg.status = 'COMPLETED';
+    
+    if (!state.history) state.history = [];
+    if (!leg.logData) leg.logData = { role:'CO', assign:{to:'pm',ldg:'pm'}, cond:{to:'day',ldg:'day'}, out:"", in:"", ngt:"", inst:"", memo:"" };
+    
+    const now = new Date();
+    const dateStr = `${String(now.getMonth()+1).padStart(2,'0')}/${String(now.getDate()).padStart(2,'0')}`;
+    let blk = "";
+    const elBlk = document.getElementById('log-res-blk');
+    if (elBlk) blk = elBlk.innerText;
+    
+    let pic="", picxc="", co="", coxc="";
+    if (blk && blk !== "00:00" && blk !== "0:00") {
+        if (leg.logData.role === 'PUS') {
+            pic = blk; picxc = blk;
+        } else {
+            co = blk; coxc = blk;
+        }
+    }
+
+    const fmt = (v) => v ? v.replace("h", ":").replace("m", "") : "";
+    
+    let picNgt = "", coNgt = "";
+    const rawNgt = fmt(leg.logData.ngt);
+    
+    if (rawNgt && rawNgt !== "00:00") {
+        if (leg.logData.role === 'PUS') {
+            picNgt = rawNgt;
+        } else {
+            coNgt = rawNgt;
+        }
+    }
+
+    const record = {
+        date: dateStr,
+        flt: "JL" + (leg.flt || ""),
+        ship: leg.ship ? "JA"+leg.ship+"J" : "",
+        dep: leg.dep || "",
+        arr: leg.arr || "",
+        out: leg.logData.out || "",
+        in: leg.logData.in || "",
+        blk: blk,
+        pic: pic, picxc: picxc, co: co, coxc: coxc,
+        picNgt: picNgt, coNgt: coNgt,
+        inst: fmt(leg.logData.inst),
+        to: (leg.logData.assign.to === 'pf') ? (leg.logData.cond.to==='day'?'1':'N1') : '',
+        ldg: (leg.logData.assign.ldg === 'pf') ? (leg.logData.cond.ldg==='day'?'1':'N1') : '',
+        memo: leg.logData.memo || ""
+    };
+    
+    state.history.push(record);
+    
+    if(typeof closeActionType !== 'undefined' && closeActionType === 'DUTY_OFF') {
+        const keptHistory = state.history;
+        state.legs = Array.from({length:4}, () => ({
+            status: 'OPEN',
+            flt: "", dep: "", arr: "", std: "", sta: "", timeEnroute: "", taxi: "05",
+            paxTotal: "165", paxInf: "0",
+            sp: {}, load: { dry:0, dryMode:'DOM', mag:0, magPos:[], ti:0, radioPos:[], beadsFwd:0, beadsAft:0, codes:[] }, 
+            loadAlerts: { ca: false, acars: false }, checks: [], turbLogs: []
+        }));
+        state.idx = 0;
+        state.history = keptHistory;
+        
+        saveData();
+        alert("DUTY COMPLETED.\n\nOperational data cleared.\nHistory saved.");
+        location.reload(); 
+        return;
+    }
+    
+    if(state.idx < state.legs.length - 1) {
+        setTimeout(() => setLeg(state.idx + 1), 500);
+    } else {
+        state.legs.push({});
+        setTimeout(() => setLeg(state.idx + 1), 500);
+    }
+    saveData();
+}
+
+/* ============================================================
+   MODULE: CSV EXPORT WITH DATE FILTER
+   ============================================================ */
+
+// 1. ボタンが押されたらモーダルを開く
+function downloadHistoryCsv() {
+    if (!state.history || state.history.length === 0) {
+        alert("No flight history found.");
+        return;
+    }
+    
+    // 日付の初期値をセット（今月の1日 〜 今日）
+    const now = new Date();
+    const yyyy = now.getFullYear();
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const dd = String(now.getDate()).padStart(2, '0');
+    
+    document.getElementById('exp-from').value = `${yyyy}-${mm}-01`; // 今月1日
+    document.getElementById('exp-to').value = `${yyyy}-${mm}-${dd}`; // 今日
+    
+    openModal('export');
+}
+
+// 2. 期間でフィルタリングしてダウンロード実行
+function executeExport() {
+    const fromVal = document.getElementById('exp-from').value;
+    const toVal = document.getElementById('exp-to').value;
+    
+    if (!fromVal || !toVal) {
+        alert("Please select date range.");
+        return;
+    }
+
+    // 比較用数値を作成 (YYYYMMDD形式の数値に変換して比較)
+    const getCompVal = (dateStr) => parseInt(dateStr.replace(/-/g, ""), 10);
+    const minDate = getCompVal(fromVal);
+    const maxDate = getCompVal(toVal);
+    
+    // 現在の年を取得（ログのMM/DDに年を補完するため）
+    const currentYear = new Date().getFullYear();
+
+    // フィルタリング実行
+    const filteredData = state.history.filter(r => {
+        if (!r.date) return false;
+        // ログの日付 (MM/DD) を YYYYMMDD 数値に変換
+        // ※年をまたぐデータがある場合、ここは厳密な年管理が必要ですが、
+        // 簡易的に「現在の年」または「入力されたFROMの年」を使って補完します。
+        const [m, d] = r.date.split('/');
+        // FROMで指定された年を使って比較用日付を生成
+        const checkYear = fromVal.substring(0, 4); 
+        const recVal = parseInt(`${checkYear}${m}${d}`, 10);
+        
+        return recVal >= minDate && recVal <= maxDate;
+    });
+
+    if (filteredData.length === 0) {
+        alert("No records found in this range.");
+        return;
+    }
+
+    // CSV生成 (既存ロジックを流用)
+    const header = [
+        "DATE", "FLT", "T/O", "LDG", "SHIP", "DEP", "ARR", 
+        "OUT", "IN", "BLK", 
+        "PIC", "PIC X/C", "PIC NGT", 
+        "CO", "CO X/C", "CO NGT", 
+        "INST", "REMARKS"
+    ];
+    
+    const rows = filteredData.map(r => {
+        return [
+            r.date, r.flt, r.to, r.ldg, r.ship, r.dep, r.arr, 
+            r.out, r.in, r.blk, 
+            r.pic || "", r.picxc || "", r.picNgt || "", 
+            r.co || "", r.coxc || "", r.coNgt || "", 
+            r.inst || "", 
+            `"${r.memo}"`
+        ].join(",");
+    });
+
+    const csvContent = "data:text/csv;charset=utf-8," + header.join(",") + "\n" + rows.join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    
+    // ファイル名に期間を入れる
+    const rangeStr = `${fromVal.replace(/-/g,"")}-${toVal.replace(/-/g,"")}`;
+    link.setAttribute("download", `flight_log_${rangeStr}.csv`);
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    closeModal('export');
+}
+
+function loadData() {
+    const key = (typeof STORAGE_KEY !== 'undefined') ? STORAGE_KEY : "copilot_v2_data";
+    const saved = localStorage.getItem(key);
+    if (saved) {
+        try {
+            const data = JSON.parse(saved);
+            if (data.state) {
+                state = { ...state, ...data.state };
+                if(!state.legs || state.legs.length === 0) {
+                     state.legs = Array.from({length:4},()=>({})); 
+                }
+            }
+            if (data.wxOthersCode && typeof wxOthersCode !== 'undefined') wxOthersCode = data.wxOthersCode;
+            if (data.userLimits && typeof userLimits !== 'undefined') userLimits = data.userLimits;
+            if(state.legs.length > 0) setLeg(state.idx);
+        } catch (e) { console.error("Data Load Error:", e); }
+    }
+}
+
+window.addEventListener('load', () => {
+    loadData();
+    if(typeof render === 'function') render();
+});
+
+/* ============================================================
+   MODULE: HISTORY MANAGER (EDIT / DELETE)
+   ============================================================ */
+
+function openHistoryManager() {
+    closeModal('log'); // ログ画面を一旦閉じる
+    openModal('history');
+    renderHistoryList();
+}
+
+function renderHistoryList() {
+    const listArea = document.getElementById('hist-list-view');
+    const editorArea = document.getElementById('hist-editor-view');
+    
+    listArea.style.display = 'flex';
+    editorArea.style.display = 'none';
+    
+    if (!state.history || state.history.length === 0) {
+        listArea.innerHTML = '<div style="text-align:center; color:#94a3b8; padding:20px; font-family:Inter;">NO HISTORY DATA</div>';
+        return;
+    }
+
+    // パディング関数 (共通)
+    const pad = (str, len) => (str || "").toString().padEnd(len, " ");
+
+    // ヘッダーテキスト (プレビューと同じ構成)
+    const headerText = 
+        pad("DATE",6) + pad("SHIP",5) + pad("REG",8) + 
+        pad("FLT",8) + pad("T/O",4) + pad("LDG",4) + 
+        pad("DEP",5) + pad("ARR",5) + 
+        pad("OUT",6) + pad("IN",6) + 
+        pad("PIC",6) + pad("X/C",6) + pad("NGT",6) + 
+        pad("CO",6) + pad("X/C",6) + pad("NGT",6) + 
+        pad("INST",6) + "RMK";
+
+    let html = `<div class="hist-header-row">${headerText}</div>`;
+
+    // 履歴データをループして行を生成
+    html += state.history.map((r, i) => {
+        // ★修正: 保存データ(JA付/JL付)をそのまま表示に使用
+        const shipDisp = r.ship || ""; // 例: JA801J
+        const fltDisp = r.flt || "";   // 例: JL123
+        
+        // 1行分のテキストデータを生成
+        const lineData = 
+            pad(r.date, 6) + 
+            pad("B738", 5) + 
+            pad(shipDisp, 8) +  // JA付き
+            pad(fltDisp, 8) +   // JL付き
+            pad(r.to, 4) + pad(r.ldg, 4) + 
+            pad(r.dep, 5) + pad(r.arr, 5) + 
+            pad(r.out, 6) + pad(r.in, 6) + 
+            pad(r.pic, 6) + pad(r.picxc, 6) + pad(r.picNgt, 6) + 
+            pad(r.co, 6) + pad(r.coxc, 6) + pad(r.coNgt, 6) + 
+            pad(r.inst, 6) + 
+            (r.memo || "");
+
+        // HTML構造 (テキスト + ボタン)
+        return `
+        <div class="hist-console-row">
+            <div class="hist-line-text">${lineData}</div>
+            <div class="hist-line-actions">
+                <button class="h-mini-btn edit" onclick="startHistoryEdit(${i})">EDIT</button>
+                <button class="h-mini-btn del" onclick="deleteHistoryItem(${i})">DEL</button>
+            </div>
+        </div>`;
+    }).join('');
+
+    listArea.innerHTML = html;
+}
+
+function deleteHistoryItem(index) {
+    if(!confirm("Are you sure you want to delete this record?")) return;
+    
+    state.history.splice(index, 1);
+    saveData();
+    renderHistoryList();
+}
+
+function startHistoryEdit(index) {
+    const r = state.history[index];
+    if(!r) return;
+
+    // View切り替え
+    document.getElementById('hist-list-view').style.display = 'none';
+    document.getElementById('hist-editor-view').style.display = 'flex';
+
+    // 値をセット
+    document.getElementById('hist-edit-idx').value = index;
+    
+    const setVal = (id, val) => document.getElementById(id).value = val || "";
+    
+    setVal('he-date', r.date);
+    setVal('he-flt', r.flt);
+    setVal('he-ship', r.ship);
+    setVal('he-dep', r.dep);
+    setVal('he-arr', r.arr);
+    setVal('he-out', r.out);
+    setVal('he-in', r.in);
+    setVal('he-blk', r.blk);
+    
+    setVal('he-pic', r.pic);
+    setVal('he-picxc', r.picxc);
+    setVal('he-picngt', r.picNgt);
+    
+    setVal('he-co', r.co);
+    setVal('he-coxc', r.coxc);
+    setVal('he-congt', r.coNgt);
+    
+    setVal('he-inst', r.inst);
+    setVal('he-to', r.to);
+    setVal('he-ldg', r.ldg);
+    setVal('he-memo', r.memo);
+}
+
+function cancelHistoryEdit() {
+    renderHistoryList(); // リストに戻る
+}
+
+function saveHistoryEdit() {
+    const idx = parseInt(document.getElementById('hist-edit-idx').value);
+    if(isNaN(idx) || !state.history[idx]) return;
+
+    const getVal = (id) => document.getElementById(id).value;
+
+    // データ更新
+    // 既存のデータを保持しつつ(...state.history[idx])、入力値で上書きする
+    state.history[idx] = {
+        ...state.history[idx], 
+        
+        date: getVal('he-date'),
+        flt: getVal('he-flt'),
+        ship: getVal('he-ship'),
+        dep: getVal('he-dep'),
+        arr: getVal('he-arr'),
+        
+        out: getVal('he-out'),
+        in: getVal('he-in'),
+        blk: getVal('he-blk'),
+        
+        pic: getVal('he-pic'),
+        picxc: getVal('he-picxc'),
+        picNgt: getVal('he-picngt'), // PIC NGT
+        
+        co: getVal('he-co'),
+        coxc: getVal('he-coxc'),
+        coNgt: getVal('he-congt'),   // CO NGT
+        
+        inst: getVal('he-inst'),
+        to: getVal('he-to'),
+        ldg: getVal('he-ldg'),
+        memo: getVal('he-memo')
+    };
+
+    saveData();
+    renderHistoryList(); // リスト画面に戻る
+}
+
+/* =========================================
+   WIND CALC : NUMPAD CONTROLLER
+   (このコードを追加することで入力が可能になります)
+   ========================================= */
+
+let windNpTargetId = null;
+let windNpVal = "";
+
+// テンキーモーダルを開く
+function openWindNumpad(id, label) {
+    windNpTargetId = id;
+    windNpVal = "";
+    
+    const labelEl = document.getElementById('wind-np-label');
+    const valEl = document.getElementById('wind-np-val');
+    const modalEl = document.getElementById('modal-wind-numpad');
+    
+    if(labelEl) labelEl.innerText = label;
+    if(valEl) valEl.innerText = "";
+    
+    if(modalEl) {
+        modalEl.classList.add('active');
+    } else {
+        console.error("Error: #modal-wind-numpad not found in HTML");
+    }
+}
+
+// テンキーモーダルを閉じる
+function closeWindNumpad() {
+    const modalEl = document.getElementById('modal-wind-numpad');
+    if(modalEl) modalEl.classList.remove('active');
+}
+
+// 数字入力処理
+function windNpInput(n) {
+    // 最大3〜4桁まで入力許可
+    if(windNpVal.length < 4) {
+        windNpVal += n;
+    }
+    const valEl = document.getElementById('wind-np-val');
+    if(valEl) valEl.innerText = windNpVal;
+}
+
+// クリア処理
+function windNpClear() {
+    windNpVal = "";
+    const valEl = document.getElementById('wind-np-val');
+    if(valEl) valEl.innerText = "";
+}
+
+// 確定処理
+function windNpConfirm() {
+    if (windNpTargetId) {
+        const el = document.getElementById(windNpTargetId);
+        if (el) {
+            // 値を入力欄にセット
+            el.value = windNpVal;
+            
+            // 計算を実行
+            if(typeof runCalc === 'function') runCalc();
+            
+            // フォーマット（3桁埋めなど）の適用
+            if(windNpTargetId === 'calc-hdg' && typeof formatHdg === 'function') formatHdg();
+            if(windNpTargetId === 'calc-wd' && typeof formatDir === 'function') formatDir();
+            
+            // リミット設定の場合の保存処理
+            if(windNpTargetId.startsWith('lim-') && typeof saveLimit === 'function') {
+                const type = windNpTargetId.split('-')[1]; // lim-hw -> hw
+                saveLimit(type, windNpVal);
+            }
+        }
+    }
+    closeWindNumpad();
 }
