@@ -2489,6 +2489,45 @@ function convNpInput(n) {
     document.getElementById('conv-np-val').innerText = convNpVal;
 }
 
+// テンキーを閉じる
+function closeConvNumpad() {
+    const el = document.getElementById('modal-conv-numpad');
+    if (el) el.classList.remove('active');
+}
+
+// 一文字削除 (Back)
+function convNpBack() {
+    convNpVal = convNpVal.slice(0, -1);
+    document.getElementById('conv-np-val').innerText = convNpVal;
+}
+
+// 全消去 (Clear)
+function convNpClear() {
+    convNpVal = "";
+    document.getElementById('conv-np-val').innerText = "";
+}
+
+// 決定 (Enter)
+function convNpConfirm() {
+    const el = document.getElementById(convNpKey);
+    
+    if (el && convNpVal !== "") {
+        // 値をセット
+        el.value = convNpVal;
+        
+        // 入力箇所に応じて計算を実行
+        if (convNpKey === 'conv-alt') {
+            calcConv('maintain'); // 高度変更時は現在のモードを維持して再計算
+        } else if (convNpKey === 'conv-ias') {
+            calcConv('ias');      // IAS入力時はIASを基準にMACH等を計算
+        } else if (convNpKey === 'conv-mach') {
+            calcConv('mach');     // MACH入力時はMACHを基準にIAS等を計算
+        }
+    }
+    
+    closeConvNumpad();
+}
+
 
 // === DATA PERSISTENCE (AUTO SAVE/LOAD) ===
 const STORAGE_KEY = "copilot_v2_data";
@@ -2694,6 +2733,7 @@ function formatMinSec(mins) {
 }
 
 function calcScenario() {
+    // 1. INPUT取得
     const dist = parseFloat(document.getElementById('sa-dist').value) || 0;
     const wt = parseFloat(document.getElementById('sa-wt').value) || 120; 
 
@@ -2705,18 +2745,25 @@ function calcScenario() {
     const tgtVal = parseFloat(document.getElementById('sa-tgt-val').value) || 0;
     const tgtWind = parseFloat(document.getElementById('sa-tgt-wind').value) || 0;
 
-    // --- PHYSICS CALCULATION ---
+    // 2. 物理計算 (PHYSICS) - BASE
     const baseAero = getAeroFromMach(baseFL, baseMach);
     const baseTas = baseAero.tas;
     const baseIas = baseAero.ias;
     const baseTempC = Math.round(baseAero.tempK - 273.15);
+
+    // ★重要: TARGET側の計算モード自動判定 (ここがGS異常値の修正部分)
+    // 値が 10 以上なら、ボタンが MACH でも IAS として計算する
+    let effectiveMode = saMode; 
+    if (tgtVal > 10.0) {
+        effectiveMode = 'ias';
+    }
 
     let tgtTas = 0;
     let tgtMach = 0;
     let tgtIas = 0;
     let tgtTempC = 0;
 
-    if (saMode === 'mach') {
+    if (effectiveMode === 'mach') {
         tgtMach = tgtVal;
         const tgtAero = getAeroFromMach(tgtFL, tgtVal);
         tgtTas = tgtAero.tas;
@@ -2730,50 +2777,59 @@ function calcScenario() {
         tgtTempC = Math.round(tgtAero.tempK - 273.15);
     }
 
-    // UPDATE DISPLAY
-    document.getElementById('sa-base-tas').innerText = Math.round(baseTas);
-    document.getElementById('sa-base-gs').innerText = Math.round(baseTas + baseWind);
-    document.getElementById('sa-base-temp').innerText = baseTempC;
-    document.getElementById('sa-base-conv').innerText = `IAS: ${Math.round(baseIas)} KT`;
-
-    document.getElementById('sa-tgt-tas').innerText = Math.round(tgtTas);
-    document.getElementById('sa-tgt-gs').innerText = Math.round(tgtTas + tgtWind);
-    document.getElementById('sa-tgt-temp').innerText = tgtTempC;
-    
-    const elConv = document.getElementById('sa-tgt-conv');
-    if (saMode === 'mach') {
-        elConv.innerText = `IAS: ${Math.round(tgtIas)} KT`;
-    } else {
-        elConv.innerText = `MACH: .${Math.round(tgtMach * 100)}`; 
-        if (tgtMach >= 1) elConv.innerText = `MACH: ${tgtMach.toFixed(2)}`;
-    }
-
-    // TIME CALCULATION
+    // GS計算 (定義漏れ修正済み)
     const baseGs = baseTas + baseWind;
     const tgtGs = tgtTas + tgtWind;
 
+    // 3. 表示更新 (UPDATE DISPLAY)
+    // Helper
+    const set = (id, txt) => { const el = document.getElementById(id); if(el) el.innerText = txt; };
+
+    set('sa-base-tas', Math.round(baseTas));
+    set('sa-base-gs', Math.round(baseGs));
+    set('sa-base-temp', baseTempC);
+    set('sa-base-conv', `IAS: ${Math.round(baseIas)} KT`);
+
+    set('sa-tgt-tas', Math.round(tgtTas));
+    set('sa-tgt-gs', Math.round(tgtGs)); // これで異常値（マッハ280相当のGS）は消えます
+    set('sa-tgt-temp', tgtTempC);
+    
+    // 換算値表示の更新 (自動判定に合わせて表示を変える)
+    const elConv = document.getElementById('sa-tgt-conv');
+    if (elConv) {
+        if (effectiveMode === 'mach') {
+            elConv.innerText = `IAS: ${Math.round(tgtIas)} KT`;
+        } else {
+            elConv.innerText = `MACH: .${Math.round(tgtMach * 100)}`; 
+            if (tgtMach >= 1) elConv.innerText = `MACH: ${tgtMach.toFixed(2)}`;
+        }
+    }
+
+    // 4. 時間計算 (TIME CALCULATION)
     let baseTimeH = (baseGs > 0) ? dist / baseGs : 0;
     let tgtTimeH = (tgtGs > 0) ? dist / tgtGs : 0;
     
     const diffMin = (tgtTimeH - baseTimeH) * 60; 
 
     const elTime = document.getElementById('sa-res-time');
-    if (Math.abs(diffMin) < 0.1) {
-        elTime.innerText = "00:00";
-        elTime.className = "sa-res-val res-neutral";
-    } else if (diffMin < 0) {
-        elTime.innerText = "-" + formatMinSec(Math.abs(diffMin)); // Negative is Faster
-        elTime.className = "sa-res-val res-good";
-    } else {
-        elTime.innerText = "+" + formatMinSec(Math.abs(diffMin)); // Positive is Slower
-        elTime.className = "sa-res-val res-bad";
+    if (elTime) {
+        if (Math.abs(diffMin) < 0.1) {
+            elTime.innerText = "00:00";
+            elTime.className = "sa-res-val res-neutral";
+        } else if (diffMin < 0) {
+            elTime.innerText = "-" + formatMinSec(Math.abs(diffMin)); 
+            elTime.className = "sa-res-val res-good";
+        } else {
+            elTime.innerText = "+" + formatMinSec(Math.abs(diffMin)); 
+            elTime.className = "sa-res-val res-bad";
+        }
     }
     
     const tgtH = Math.floor(tgtTimeH);
     const tgtM = Math.round((tgtTimeH - tgtH) * 60);
-    document.getElementById('sa-time-sub').innerText = `TOTAL ${String(tgtH).padStart(2,'0')}:${String(tgtM).padStart(2,'0')}`;
+    set('sa-time-sub', `TOTAL ${String(tgtH).padStart(2,'0')}:${String(tgtM).padStart(2,'0')}`);
 
-    // --- FUEL CALCULATION ---
+    // 5. 燃料計算 (FUEL CALCULATION)
     let rawBaseFF = getFuelFlow(baseFL, wt);
     let baseRefMach = (baseFL >= 270) ? 0.79 : getAeroFromIas(baseFL, 280).mach;
     let baseSpdDiff = baseMach - baseRefMach;
@@ -2786,64 +2842,67 @@ function calcScenario() {
     } else {
         tgtRefMach = getAeroFromIas(tgtFL, 280).mach;
     }
+    
+    // ★ここも修正: 自動判定された tgtMach を使うことで燃料計算も正常化
     let tgtSpdDiff = tgtMach - tgtRefMach;
     let tgtFF = rawTgtFF * (1 + (tgtSpdDiff / 0.01) * 0.02);
 
     let baseBurn = baseFF * baseTimeH;
     let tgtBurn = tgtFF * tgtTimeH;
-    
     let diffFuel = tgtBurn - baseBurn; 
 
     const elFuel = document.getElementById('sa-res-fuel');
+    if (elFuel) {
+        if (diffFuel > 10) {
+            elFuel.innerText = "+" + Math.round(diffFuel) + " LBS";
+            elFuel.className = "sa-res-val res-bad";
+        } else if (diffFuel < -10) {
+            elFuel.innerText = Math.round(diffFuel) + " LBS";
+            elFuel.className = "sa-res-val res-good";
+        } else {
+            elFuel.innerText = "0 LBS";
+            elFuel.className = "sa-res-val res-neutral";
+        }
+    }
+
     const elFuelPct = document.getElementById('sa-res-fuel-pct');
-    
-    if (diffFuel > 10) {
-        elFuel.innerText = "+" + Math.round(diffFuel) + " LBS";
-        elFuel.className = "sa-res-val res-bad";
-    } else if (diffFuel < -10) {
-        elFuel.innerText = Math.round(diffFuel) + " LBS";
-        elFuel.className = "sa-res-val res-good";
-    } else {
-        elFuel.innerText = "0 LBS";
-        elFuel.className = "sa-res-val res-neutral";
+    if (elFuelPct) {
+        let diffPct = 0;
+        if (baseBurn > 0) {
+            diffPct = ((tgtBurn - baseBurn) / baseBurn) * 100;
+        }
+        let signPct = diffPct > 0 ? "+" : "";
+        elFuelPct.innerText = `(${signPct}${diffPct.toFixed(1)}%)`;
     }
 
-    let diffPct = 0;
-    if (baseBurn > 0) {
-        diffPct = ((tgtBurn - baseBurn) / baseBurn) * 100;
-    }
-    let signPct = diffPct > 0 ? "+" : "";
-    elFuelPct.innerText = `(${signPct}${diffPct.toFixed(1)}%)`;
-
-    // --- JUDGMENT LOGIC (COST/MIN) ---
+    // 6. 判定 (JUDGMENT)
     const elJudge = document.getElementById('sa-judge-text');
-    let costPerMin = 0;
-    
-    if (Math.abs(diffMin) > 0.1) {
-        costPerMin = Math.abs(diffFuel / diffMin);
-    }
+    if (elJudge) {
+        let costPerMin = 0;
+        if (Math.abs(diffMin) > 0.1) {
+            costPerMin = Math.abs(diffFuel / diffMin);
+        }
 
-    if (diffMin <= -0.1) { 
-        // FASTER
-        if (diffFuel > 0) {
-            elJudge.innerText = `⚡ COST: ${Math.round(costPerMin)} LBS/MIN`;
-            elJudge.className = "sa-judge res-cost";
+        if (diffMin <= -0.1) { 
+            if (diffFuel > 0) {
+                elJudge.innerText = `⚡ COST: ${Math.round(costPerMin)} LBS/MIN`;
+                elJudge.className = "sa-judge res-cost";
+            } else {
+                elJudge.innerText = "✨ GREAT ADVANTAGE";
+                elJudge.className = "sa-judge res-good";
+            }
+        } else if (diffMin >= 0.1) { 
+            if (diffFuel < 0) {
+                elJudge.innerText = `💰 SAVE: ${Math.round(costPerMin)} LBS/MIN`;
+                elJudge.className = "sa-judge res-good";
+            } else {
+                elJudge.innerText = "👎 DISADVANTAGE";
+                elJudge.className = "sa-judge res-bad";
+            }
         } else {
-            elJudge.innerText = "✨ GREAT ADVANTAGE";
-            elJudge.className = "sa-judge res-good";
+            elJudge.innerText = "TIME UNCHANGED";
+            elJudge.className = "sa-judge res-neutral";
         }
-    } else if (diffMin >= 0.1) { 
-        // SLOWER
-        if (diffFuel < 0) {
-            elJudge.innerText = `💰 SAVE: ${Math.round(costPerMin)} LBS/MIN`;
-            elJudge.className = "sa-judge res-good";
-        } else {
-            elJudge.innerText = "👎 DISADVANTAGE";
-            elJudge.className = "sa-judge res-bad";
-        }
-    } else {
-        elJudge.innerText = "TIME UNCHANGED";
-        elJudge.className = "sa-judge res-neutral";
     }
 }
 
@@ -3126,7 +3185,8 @@ function calcTimeDiff(start, end) {
     return String(h).padStart(2,'0') + ":" + String(m).padStart(2,'0');
 }
 
-// === UPDATE PREVIEW: LAYOUT CHANGED ===
+// === UPDATE PREVIEW: LAYOUT CHANGED (18 Columns) ===
+// === UPDATE PREVIEW: LAYOUT CHANGED (18 Columns, ICAO Conversion) ===
 function updatePreview() {
     const elDate = document.getElementById('log-date');
     if(!elDate) return; 
@@ -3141,17 +3201,19 @@ function updatePreview() {
     const fltNum = fltDisp.replace("JL", "").trim();
     const flt = "JL" + fltNum;
 
-    // ★ T/O, LDG の値を算出 (PFかつDayなら1, NgtならN1, PMなら空)
-    const legLog = state.legs[state.idx].logData;
-    const valTo = (legLog.assign.to === 'pf') ? (legLog.cond.to==='day'?'1':'N1') : '';
-    const valLdg = (legLog.assign.ldg === 'pf') ? (legLog.cond.ldg==='day'?'1':'N1') : '';
-
-    const dep = document.getElementById('log-dep').value.toUpperCase();
-    const arr = document.getElementById('log-arr').value.toUpperCase();
+    // 入力値(3文字)を取得してICAO(4文字)へ変換
+    const rawDep = document.getElementById('log-dep').value.toUpperCase();
+    const rawArr = document.getElementById('log-arr').value.toUpperCase();
+    const dep = toICAO(rawDep);
+    const arr = toICAO(rawArr);
     
     const outT = document.getElementById('log-t-out').value || "";
     const inT = document.getElementById('log-t-in').value || "";
     const blk = document.getElementById('log-res-blk').innerText;
+    
+    const legLog = state.legs[state.idx].logData;
+    const valTo = (legLog.assign.to === 'pf') ? (legLog.cond.to==='day'?'1':'N1') : '';
+    const valLdg = (legLog.assign.ldg === 'pf') ? (legLog.cond.ldg==='day'?'1':'N1') : '';
     
     const formatDur = (val) => {
         if (!val) return "";
@@ -3185,52 +3247,61 @@ function updatePreview() {
 
     const pad = (str, len) => (str || "").padEnd(len, " ");
     
+    // 文字列整形 (全18列)
     const sDate   = pad(date, 6);
     const sShip   = pad(type, 5);
     const sReg    = pad(reg, 8); 
-    const sFlt    = pad(flt, 8);
-    // ★ T/O, LDG の表示幅 (4文字分確保)
-    const sToVal  = pad(valTo, 4);
-    const sLdgVal = pad(valLdg, 4);
-
-    const sDep    = pad(dep, 5);
+    const sDep    = pad(dep, 5); // 4文字コードが入るため5でOK
     const sArr    = pad(arr, 5);
     const sOut    = pad(outT, 6);
     const sIn     = pad(inT, 6);
+    const sFlt    = pad(flt, 8);
+    const sTo     = pad(valTo, 4);
+    const sLdg    = pad(valLdg, 4);
+    const sBlk    = pad(blkFmt, 6);
     
     const sPic    = pad(picT, 6);
     const sPicXc  = pad(picXcT, 6);
+    const sPicNgt = pad(picNgt, 6);
+    
     const sCo     = pad(coT, 6);
     const sCoXc   = pad(coXcT, 6);
-    const sPicNgt = pad(picNgt, 6);
     const sCoNgt  = pad(coNgt, 6);
+    
     const sInst   = pad(inst, 6);
 
-    // ★ヘッダー更新: FLTの隣に T/O LDG を追加
+    // ヘッダー作成 (DEP, ARR)
     const header = 
         pad("DATE",6) + pad("SHIP",5) + pad("REG",8) + 
-        pad("FLT",8) + pad("T/O",4) + pad("LDG",4) + // 追加
         pad("DEP",5) + pad("ARR",5) + 
-        pad("DEP",6) + pad("ARR",6) + 
+        pad("OUT",6) + pad("IN",6) + 
+        pad("FLT",8) + pad("T/O",4) + pad("LDG",4) + pad("TIME",6) + 
         pad("PIC",6) + pad("X/C",6) + pad("NGT",6) + 
         pad("CO",6) + pad("X/C",6) + pad("NGT",6) + 
         pad("INST",6) + "RMK";
 
-    // ★データ更新
+    // データ作成
     const data = 
         sDate + sShip + sReg + 
-        sFlt + sToVal + sLdgVal + // 追加
-        sDep + sArr + 
-        sOut + sIn + 
+        sDep + sArr + sOut + sIn + 
+        sFlt + sTo + sLdg + sBlk + 
         sPic + sPicXc + sPicNgt + 
         sCo + sCoXc + sCoNgt + 
         sInst + (memo ? memo : "");
 
     const elHead = document.getElementById('log-preview-header');
     const elBody = document.getElementById('log-preview-text');
-    if(elHead) elHead.innerText = header;
-    if(elBody) elBody.innerText = data;
+    if(elHead) {
+        elHead.innerText = header;
+        elHead.style.whiteSpace = "pre";
+    }
+    if(elBody) {
+        elBody.innerText = data;
+        elBody.style.whiteSpace = "pre";
+    }
 }
+
+
 
 function copyLogbookFormat() {
     const elBody = document.getElementById('log-preview-text');
@@ -3367,25 +3438,16 @@ function executeExport() {
         return;
     }
 
-    // 比較用数値を作成 (YYYYMMDD形式の数値に変換して比較)
     const getCompVal = (dateStr) => parseInt(dateStr.replace(/-/g, ""), 10);
     const minDate = getCompVal(fromVal);
     const maxDate = getCompVal(toVal);
     
-    // 現在の年を取得（ログのMM/DDに年を補完するため）
-    const currentYear = new Date().getFullYear();
-
-    // フィルタリング実行
+    // フィルタリング
     const filteredData = state.history.filter(r => {
         if (!r.date) return false;
-        // ログの日付 (MM/DD) を YYYYMMDD 数値に変換
-        // ※年をまたぐデータがある場合、ここは厳密な年管理が必要ですが、
-        // 簡易的に「現在の年」または「入力されたFROMの年」を使って補完します。
         const [m, d] = r.date.split('/');
-        // FROMで指定された年を使って比較用日付を生成
         const checkYear = fromVal.substring(0, 4); 
         const recVal = parseInt(`${checkYear}${m}${d}`, 10);
-        
         return recVal >= minDate && recVal <= maxDate;
     });
 
@@ -3394,10 +3456,11 @@ function executeExport() {
         return;
     }
 
-    // CSV生成 (既存ロジックを流用)
+    // CSVヘッダー: "DEP", "ARR" に戻し、項目順は維持
     const header = [
-        "DATE", "FLT", "T/O", "LDG", "SHIP", "DEP", "ARR", 
-        "OUT", "IN", "BLK", 
+        "日付", "SHIP", "REG", "DEP", "ARR", 
+        "DEP TIME", "ARR TIME", "FLT NO", 
+        "T/O", "LDG", "FLT TIME", 
         "PIC", "PIC X/C", "PIC NGT", 
         "CO", "CO X/C", "CO NGT", 
         "INST", "REMARKS"
@@ -3405,21 +3468,37 @@ function executeExport() {
     
     const rows = filteredData.map(r => {
         return [
-            r.date, r.flt, r.to, r.ldg, r.ship, r.dep, r.arr, 
-            r.out, r.in, r.blk, 
-            r.pic || "", r.picxc || "", r.picNgt || "", 
-            r.co || "", r.coxc || "", r.coNgt || "", 
-            r.inst || "", 
+            r.date, 
+            "B738",        // SHIP
+            r.ship,        // REG
+            toICAO(r.dep), // DEP (ICAO変換)
+            toICAO(r.arr), // ARR (ICAO変換)
+            r.out,         // DEP TIME
+            r.in,          // ARR TIME
+            r.flt,         // FLT NO
+            r.to,          // T/O
+            r.ldg,         // LDG
+            r.blk,         // FLT TIME
+            r.pic || "", 
+            r.picxc || "", 
+            r.picNgt || "", 
+            r.co || "", 
+            r.coxc || "", 
+            r.coNgt || "", 
+            r.inst || "",
             `"${r.memo}"`
         ].join(",");
     });
 
-    const csvContent = "data:text/csv;charset=utf-8," + header.join(",") + "\n" + rows.join("\n");
-    const encodedUri = encodeURI(csvContent);
+    // BOM付与
+    const bom = new Uint8Array([0xEF, 0xBB, 0xBF]);
+    const csvContent = header.join(",") + "\n" + rows.join("\n");
+    const blob = new Blob([bom, csvContent], { type: "text/csv;charset=utf-8;" });
+
+    const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
+    link.setAttribute("href", url);
     
-    // ファイル名に期間を入れる
     const rangeStr = `${fromVal.replace(/-/g,"")}-${toVal.replace(/-/g,"")}`;
     link.setAttribute("download", `flight_log_${rangeStr}.csv`);
     
@@ -3476,45 +3555,47 @@ function renderHistoryList() {
         return;
     }
 
-    // パディング関数 (共通)
     const pad = (str, len) => (str || "").toString().padEnd(len, " ");
 
-    // ヘッダーテキスト (プレビューと同じ構成)
+    // ヘッダー (間隔調整版 + 全18列)
     const headerText = 
         pad("DATE",6) + pad("SHIP",5) + pad("REG",8) + 
-        pad("FLT",8) + pad("T/O",4) + pad("LDG",4) + 
         pad("DEP",5) + pad("ARR",5) + 
         pad("OUT",6) + pad("IN",6) + 
-        pad("PIC",6) + pad("X/C",6) + pad("NGT",6) + 
-        pad("CO",6) + pad("X/C",6) + pad("NGT",6) + 
-        pad("INST",6) + "RMK";
+        pad("FLT",7) + pad("T/O",4) + pad("LDG",4) + 
+        pad("TIME",7) + 
+        pad("PIC",7) + pad("X/C",7) + pad("NGT",7) + 
+        pad("CO",7) + pad("X/C",7) + pad("NGT",7) + 
+        pad("INST",7);
 
-    let html = `<div class="hist-header-row">${headerText}</div>`;
+    // 等幅フォント指定
+    let html = `<div class="hist-header-row" style="font-size:0.75rem; font-family:'JetBrains Mono', monospace; white-space:pre;">${headerText}</div>`;
 
-    // 履歴データをループして行を生成
     html += state.history.map((r, i) => {
-        // ★修正: 保存データ(JA付/JL付)をそのまま表示に使用
-        const shipDisp = r.ship || ""; // 例: JA801J
-        const fltDisp = r.flt || "";   // 例: JL123
+        const shipDisp = r.ship || ""; 
+        const fltDisp = r.flt || "";   
         
-        // 1行分のテキストデータを生成
+        // ★ここでICAOコードに変換
+        const depIcao = toICAO(r.dep);
+        const arrIcao = toICAO(r.arr);
+
+        // データ行作成 (ICAOコードを使用)
         const lineData = 
             pad(r.date, 6) + 
             pad("B738", 5) + 
-            pad(shipDisp, 8) +  // JA付き
-            pad(fltDisp, 8) +   // JL付き
-            pad(r.to, 4) + pad(r.ldg, 4) + 
-            pad(r.dep, 5) + pad(r.arr, 5) + 
+            pad(shipDisp, 8) + 
+            pad(depIcao, 5) + pad(arrIcao, 5) + 
             pad(r.out, 6) + pad(r.in, 6) + 
-            pad(r.pic, 6) + pad(r.picxc, 6) + pad(r.picNgt, 6) + 
-            pad(r.co, 6) + pad(r.coxc, 6) + pad(r.coNgt, 6) + 
-            pad(r.inst, 6) + 
-            (r.memo || "");
+            pad(fltDisp, 7) + 
+            pad(r.to, 4) + pad(r.ldg, 4) + 
+            pad(r.blk, 7) + 
+            pad(r.pic, 7) + pad(r.picxc, 7) + pad(r.picNgt, 7) + 
+            pad(r.co, 7) + pad(r.coxc, 7) + pad(r.coNgt, 7) + 
+            pad(r.inst, 7);
 
-        // HTML構造 (テキスト + ボタン)
         return `
         <div class="hist-console-row">
-            <div class="hist-line-text">${lineData}</div>
+            <div class="hist-line-text" style="font-size:0.75rem; font-family:'JetBrains Mono', monospace; white-space:pre;">${lineData}</div>
             <div class="hist-line-actions">
                 <button class="h-mini-btn edit" onclick="startHistoryEdit(${i})">EDIT</button>
                 <button class="h-mini-btn del" onclick="deleteHistoryItem(${i})">DEL</button>
@@ -3685,4 +3766,8 @@ function windNpConfirm() {
         }
     }
     closeWindNumpad();
+}
+// PWA Service Worker Registration
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./sw.js');
 }

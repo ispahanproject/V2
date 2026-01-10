@@ -8,7 +8,8 @@
     　<meta name="apple-mobile-web-app-capable" content="yes">
 　　　<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 　　　<meta name="apple-mobile-web-app-title" content="CO-PILOT">
-
+    
+    <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="v2_style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@700&display=swap" rel="stylesheet">
@@ -669,7 +670,7 @@
                             <span class="perf-iso-sub-label">LDW (1000LBS)</span>
                             <div class="perf-iso-stepper-group">
                                 <button class="perf-iso-step-btn" onclick="perfAdjLdw(-1.0)">−</button>
-                                <input type="number" id="perf-in-ldw" class="perf-iso-step-input" style="color:white;" value="130.0" onchange="perfCalc()">
+                                <input type="number" id="perf-in-ldw" class="perf-iso-step-input" style="color:white;" value="---.-" onchange="perfCalc()">
                                 <button class="perf-iso-step-btn" onclick="perfAdjLdw(1.0)">+</button>
                             </div>
                         </div>
@@ -827,7 +828,7 @@
                 <div class="input-row">
                     <div class="input-group-styled fuel-style" onclick="openWbNumpad('wb-ramp')">
                         <span class="fixed-unit">RAMP (T)</span>
-                        <input type="text" id="wb-ramp" class="clean-input" value="16.0" readonly>
+                        <input type="text" id="wb-ramp" class="clean-input" value="--.-" readonly>
                     </div>
                     <div style="flex:1;"></div>
                 </div>
@@ -836,11 +837,11 @@
                 <div class="input-row">
                     <div class="input-group-styled" onclick="openWbNumpad('wb-gw')">
                         <span class="fixed-unit">ATXW (T)</span>
-                        <input type="text" id="wb-gw" class="clean-input" value="156.0" readonly>
+                        <input type="text" id="wb-gw" class="clean-input" value="---.-" readonly>
                     </div>
                     <div class="input-group-styled" onclick="openWbNumpad('wb-cg')">
                         <span class="fixed-unit">CG%</span>
-                        <input type="text" id="wb-cg" class="clean-input" value="26.2" readonly>
+                        <input type="text" id="wb-cg" class="clean-input" value="--.-" readonly>
                     </div>
                 </div>
 
@@ -848,11 +849,11 @@
                 <div class="input-row">
                     <div class="input-group-styled ldg-style" onclick="openWbNumpad('wb-gw-ldg')">
                         <span class="fixed-unit" style="color:#f59e0b;">GW (T)</span>
-                        <input type="text" id="wb-gw-ldg" class="clean-input" value="130.0" readonly>
+                        <input type="text" id="wb-gw-ldg" class="clean-input" value="---.-" readonly>
                     </div>
                     <div class="input-group-styled ldg-style" onclick="openWbNumpad('wb-cg-ldg')">
                         <span class="fixed-unit" style="color:#f59e0b;">CG%</span>
-                        <input type="text" id="wb-cg-ldg" class="clean-input" value="25.0" readonly>
+                        <input type="text" id="wb-cg-ldg" class="clean-input" value="--.-" readonly>
                     </div>
                 </div>
 
@@ -896,7 +897,7 @@
                     </div>
                     <div class="lc-row">
                         <span class="lc-label">ACTUAL</span>
-                        <span class="lc-val" id="disp-gw-ldg">130.0</span>
+                        <span class="lc-val" id="disp-gw-ldg">---.-</span>
                     </div>
                     <div class="lc-bar-bg"><div class="lc-bar-fill" id="bar-ldg" style="width: 0%; background:#f59e0b;"></div></div>
                     <div class="lc-margin-row">
@@ -1046,7 +1047,7 @@
         <div class="input-group-styled" style="flex:1" onclick="openConvNumpad('conv-alt')">
     <span class="fixed-unit" style="margin-right:5px; margin-left:0; color:var(--primary);">FL</span>
     
-    <input type="text" id="conv-alt" class="clean-input" value="300" readonly>
+    <input type="text" id="conv-alt" class="clean-input" value="240" readonly>
 </div>
         <button class="conv-step-btn" onclick="adjConvAlt(10)">+10</button>
     </div>
@@ -1073,7 +1074,7 @@
                     <span class="conv-label">MACH</span>
                     <div class="input-group-styled conv-active-input" onclick="openConvNumpad('conv-mach')">
     <span style="font-weight:900; color:var(--cyan); margin-right:2px;">M</span>
-    <input type="text" id="conv-mach" class="clean-input" value="0.74" style="color:var(--cyan)" readonly>
+    <input type="text" id="conv-mach" class="clean-input" value="0.78" style="color:var(--cyan)" readonly>
 </div>
                 </div>
             </div>
@@ -1126,7 +1127,7 @@
     </div>
     <div class="sa-input-group" onclick="saOpenNumpad('sa-wt', 'WEIGHT (1000 LBS)')">
         <span class="sa-label">WEIGHT (1000 LBS)</span>
-        <input type="text" id="sa-wt" class="clean-input" value="120" readonly>
+        <input type="text" id="sa-wt" class="clean-input" value="135" readonly>
     </div>
 </div>
 
@@ -1169,16 +1170,16 @@
                         </select>
                     </div>
 
-                    <div class="sa-input-row">
-                        <div style="display:flex; flex-direction:column; gap:2px;">
-                            <span class="sa-row-label">SPD</span>
-                            <div class="mode-toggle-group">
-                                <button id="btn-mode-mach" class="mode-btn active" onclick="setSaMode('mach', event)">MACH</button>
-                                <button id="btn-mode-ias" class="mode-btn" onclick="setSaMode('ias', event)">IAS</button>
-                            </div>
-                        </div>
-                        <input type="text" id="sa-tgt-val" class="clean-input" value="0.78" readonly onclick="openScenarioSpdNumpad()">
-                    </div>
+                    <div class="sa-input-row" onclick="openScenarioSpdNumpad()">
+    <div style="display:flex; flex-direction:column; gap:2px;">
+        <span class="sa-row-label">SPD</span>
+        <div class="mode-toggle-group">
+            <button id="btn-mode-mach" class="mode-btn active" onclick="setSaMode('mach', event)">MACH</button>
+            <button id="btn-mode-ias" class="mode-btn" onclick="setSaMode('ias', event)">IAS</button>
+        </div>
+    </div>
+    <input type="text" id="sa-tgt-val" class="clean-input" value="0.78" readonly>
+</div>
 
                     <div class="sa-input-row" onclick="saOpenNumpad('sa-tgt-wind', 'SCENARIO WIND')">
                         <span class="sa-row-label">WIND</span>
@@ -1393,7 +1394,7 @@
             <div class="log-grid-row">
                 <div class="input-styled"><span class="log-label">OUT</span><input type="text" id="he-out" class="clean-input"></div>
                 <div class="input-styled"><span class="log-label">IN</span><input type="text" id="he-in" class="clean-input"></div>
-                <div class="input-styled"><span class="log-label">BLK</span><input type="text" id="he-blk" class="clean-input"></div>
+                <div class="input-styled"><span class="log-label">BLK TIME</span><input type="text" id="he-blk" class="clean-input"></div>
             </div>
             
             <div class="log-section-title">TIMES & ROLES</div>

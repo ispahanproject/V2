@@ -9,9 +9,11 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="CO-PILOT">
 
+    <link rel="apple-touch-icon" href="icon-192.png">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="v2_style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
+    
 </head>
 <body class="home-body">
     <div class="home-modal-container">
@@ -51,5 +53,17 @@
             <button class="cancel-btn">SYSTEM SETTINGS</button>
         </div>
     </div>
+
+    <script>
+    // サービスワーカーの登録
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(reg => console.log('SW registered!', reg))
+                .catch(err => console.log('SW failed:', err));
+        });
+    }
+    </script>
+
 </body>
 </html>
