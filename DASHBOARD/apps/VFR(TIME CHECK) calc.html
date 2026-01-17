@@ -1,0 +1,763 @@
+
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VISUAL APP ASSIST v9.2 - SPEED INFO</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* === UI IS LOCKED === */
+        :root {
+            --bg: #050505; --panel: #141414; --text: #e0e0e0;
+            --accent: #00e5ff; --mag: #ff40ff; --grn: #00e676;
+            --red: #ff1744; --amb: #ffab00; --ylw: #ffea00;
+        }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace; display: flex; flex-direction: column; height: 100vh; overflow: hidden; touch-action: none; }
+        .map-wrapper { flex: 1; position: relative; overflow: hidden; background: #111; cursor: grab; touch-action: none; }
+        .map-wrapper:active { cursor: grabbing; }
+        canvas { display: block; width: 100%; height: 100%; }
+        .info-box { position: absolute; top: 55px; left: 10px; pointer-events: none; background: rgba(10,10,10,0.9); border: 1px solid #333; border-left: 3px solid var(--accent); padding: 8px 12px; border-radius: 4px; min-width: 140px; box-shadow: 0 4px 15px rgba(0,0,0,0.6); }
+        .ib-row { display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 4px; }
+        .ib-lbl { color: #888; font-size: 0.7rem; } .ib-val { font-weight: bold; color: var(--text); }
+        .val-vs { color: var(--amb); }
+        .wind-box { position: absolute; top: 10px; right: 10px; width: 60px; height: 60px; pointer-events: none; background: rgba(10,10,10,0.8); border: 1px solid #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; }
+        .zoom-float { position: absolute; bottom: 20px; right: 20px; display: flex; flex-direction: column; gap: 5px; }
+        .z-btn { width: 44px; height: 44px; background: rgba(30,30,30,0.9); color: var(--accent); border: 1px solid #444; border-radius: 8px; font-size: 1.5rem; cursor: pointer; display:grid; place-items:center; }
+        .z-btn:active { transform: scale(0.95); background: var(--accent); color: #000; }
+        .z-icon { font-size: 1.2rem; }
+        .controls { height: 280px; background: var(--panel); border-top: 1px solid #333; padding: 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; z-index: 20; overflow-y: auto; }
+        @media (min-width: 768px) { .controls { grid-template-columns: repeat(8, 1fr); height: auto; } }
+        .c-grp { display: flex; flex-direction: column; justify-content: flex-end; }
+        .c-lbl { font-size: 0.65rem; color: #888; margin-bottom: 3px; white-space: nowrap; overflow: hidden; }
+        input, select, button, .read-only-box { background: #222; border: 1px solid #444; color: #fff; font-family: inherit; font-size: 0.95rem; padding: 8px 4px; text-align: center; border-radius: 4px; width: 100%; box-sizing: border-box; outline: none; }
+        input:focus { border-color: var(--accent); color: var(--accent); }
+        .read-only-box { background: #1a1a1a; border-color: #333; color: var(--amb); font-weight: 800; display: flex; align-items: center; justify-content: center; }
+        .toggle-row { display: flex; gap: 1px; background: #333; border-radius: 4px; overflow: hidden; width: 100%; }
+        .t-btn { flex: 1; background: #222; border: none; color: #666; cursor: pointer; font-weight: bold; font-size: 0.8rem; padding: 8px 0; }
+        .t-btn.active { background: var(--accent); color: #000; }
+        .t-btn-red.active { background: var(--red); color: #fff; }
+        .t-btn-ylw.active { background: var(--ylw); color: #000; }
+        .wind-highlight { color: var(--grn); font-weight: 800; border-color: rgba(0, 230, 118, 0.3); }
+        .time-highlight { color: var(--mag); font-weight: 800; border-color: rgba(255, 64, 255, 0.3); }
+        .alt-highlight { color: var(--amb); font-weight: 800; border-color: rgba(255, 171, 0, 0.3); }
+    </style>
+</head>
+<body>
+
+    <a href="../index.html" style="
+    position: absolute; top: 10px; left: 10px; z-index: 1000;
+    background: rgba(10, 10, 10, 0.9);
+    border: 1px solid #333; border-left: 3px solid var(--accent);
+    color: var(--text); text-decoration: none;
+    padding: 8px 12px; border-radius: 4px;
+    font-weight: bold; font-size: 0.9rem;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+    pointer-events: auto;
+">🏠 HOME</a>
+
+    <div class="map-wrapper" id="map-area">
+        <canvas id="cvs"></canvas>
+        <div class="info-box">
+            <div class="ib-row"><span class="ib-lbl">REQ BANK</span><span class="ib-val" id="d-bank">--°</span></div>
+            <div class="ib-row"><span class="ib-lbl">TURN RAD</span><span class="ib-val" id="d-rad-nm">-- NM</span></div>
+            <div class="ib-row"><span class="ib-lbl">REQ V/S</span><span class="ib-val val-vs" id="d-vs">-- FPM</span></div>
+            <div class="ib-row" style="margin-top:5px; border-top:1px solid #333; padding-top:4px;">
+                <span class="ib-lbl">ZOOM</span><span class="ib-val" id="d-zoom">--%</span>
+            </div>
+        </div>
+        <div class="wind-box"><canvas id="wind-cvs" width="60" height="60"></canvas></div>
+        <div class="zoom-float">
+            <button class="z-btn" id="btn-center" title="Reset View"><span class="z-icon">⦿</span></button>
+            <div style="height:10px;"></div>
+            <button class="z-btn" id="btn-zoom-in">+</button>
+            <button class="z-btn" id="btn-zoom-out">−</button>
+        </div>
+    </div>
+
+    <div class="controls" id="ctrl-panel">
+        <div class="c-grp"> <span class="c-lbl">RWY ID</span> <input type="text" id="rwId" value="34R" style="text-transform:uppercase; font-weight:bold;"> </div>
+        <div class="c-grp"> <span class="c-lbl">HDG</span> <input type="number" id="rwHdg" value="337"> </div>
+        <div class="c-grp" style="grid-column: span 2;"> <span class="c-lbl">WIND (DIR/SPD)</span> 
+            <div style="display:flex; gap:4px;"> 
+                <input type="number" id="wDir" value="300" class="wind-highlight"> 
+                <input type="number" id="wSpd" value="20" class="wind-highlight"> 
+            </div> 
+        </div>
+        <div class="c-grp"> <span class="c-lbl">VREF (KT)</span> <input type="number" id="vref" value="130"> </div>
+        <div class="c-grp"> <span class="c-lbl">PATT ALT (MSL)</span> <input type="number" id="palt" value="1500" step="100"> </div>
+        
+        <div class="c-grp"> <span class="c-lbl">TDZ ELEV</span> <input type="number" id="tdz" value="20" step="10"> </div>
+        <div class="c-grp"> <span class="c-lbl">PAPI DIST</span> <input type="number" id="papi" value="1350" step="50" class="alt-highlight"> </div>
+        
+        <div class="c-grp"> <span class="c-lbl" style="color:var(--amb)">CALC TCH</span> <div id="calc-tch" class="read-only-box">--</div> </div>
+        <div class="c-grp"> <span class="c-lbl" style="color:var(--mag)">EST TIME</span> <div id="calc-time" class="read-only-box" style="color:var(--mag)">--</div> </div>
+        
+        <div class="c-grp"> <span class="c-lbl">WIDTH (NM)</span> <input type="number" id="width" value="2.0" step="0.1"> </div>
+        <div class="c-grp"> <span class="c-lbl">SIDE</span>
+             <div class="toggle-row">
+                 <button class="t-btn" id="btn-L" data-grp="side" data-val="L">L</button>
+                 <button class="t-btn active" id="btn-R" data-grp="side" data-val="R">R</button>
+             </div>
+        </div>
+        <div class="c-grp"> <span class="c-lbl">DCT BASE</span>
+             <div class="toggle-row">
+                 <button class="t-btn active" id="btn-DCT-OFF" data-grp="dct" data-val="OFF">OFF</button>
+                 <button class="t-btn t-btn-ylw" id="btn-DCT-ON" data-grp="dct" data-val="ON">SHOW</button>
+             </div>
+        </div>
+        <div class="c-grp"> <span class="c-lbl">VIEW</span>
+             <div class="toggle-row">
+                 <button class="t-btn active" id="btn-View-P" data-grp="view" data-val="P">PAT</button>
+                 <button class="t-btn" id="btn-View-W" data-grp="view" data-val="W">WIDE</button>
+             </div>
+        </div>
+        <div class="c-grp"> <span class="c-lbl">ORIENT</span> <button class="t-btn" id="btn-Flip">180°</button> </div>
+        <div class="c-grp"> <span class="c-lbl" style="color:var(--red)">CIRCLING</span>
+             <div class="toggle-row">
+                 <button class="t-btn t-btn-red active" id="btn-C-OFF" data-grp="circle" data-val="OFF">OFF</button>
+                 <button class="t-btn t-btn-red" id="btn-C-C" data-grp="circle" data-val="C">C</button>
+                 <button class="t-btn t-btn-red" id="btn-C-D" data-grp="circle" data-val="D">D</button>
+             </div>
+        </div>
+    </div>
+
+    <script>
+        const CONFIG = {
+            colors: {
+                bg: "#000000", grid: "#1a1a1a", rwy: "#334155", rwyMark: "#e2e8f0",
+                accent: "#00e5ff", mag: "#ff40ff", grn: "#00e676", red: "#ff1744",
+                text: "#ffffff", tagBg: "rgba(10,10,10,0.85)", amb: "#ffab00",ylw: "#ffea00"
+            },
+            font: "'JetBrains Mono'",
+            vAdd: 5, bank: 25,
+            limits: { minZoom: 20, maxZoom: 800 }
+            
+           
+        };
+
+        class FlightMath {
+            static toRad(deg) { return deg * Math.PI / 180; }
+            static toDeg(rad) { return rad * 180 / Math.PI; }
+            static normDeg(deg) { return (deg + 360) % 360; }
+            static calcTurnRadiusNm(tas, bankDeg) {
+                const rFt = (tas * tas) / (11.26 * Math.tan(this.toRad(bankDeg)));
+                return rFt / 6076;
+            }
+            static calcComponents(spd, windDir, rwHdg) {
+                const rel = windDir - rwHdg;
+                return { hw: spd * Math.cos(this.toRad(rel)), xw: spd * Math.sin(this.toRad(rel)) };
+            }
+            static calcDrift(tas, xw) { return this.toDeg(Math.asin(-xw / tas)); }
+
+            static calcLegTime(distNm, vref, windSpd, windDir, trackHdg) {
+                const avgTas = vref + 18.5;
+                const relWind = windDir - trackHdg;
+                const hwComp = windSpd * Math.cos(this.toRad(relWind));
+                const avgGs = avgTas - hwComp;
+                if (avgGs <= 0) return 999; 
+                return (distNm / avgGs) * 3600;
+            }
+
+            static calcTch(papiDist) {
+                return papiDist * 0.052407;
+            }
+        }
+
+        class AppState {
+            constructor() {
+                this.rwId = "34R"; this.rwHdg = 337;
+                this.wDir = 300; this.wSpd = 20;
+                this.vref = 145; this.palt = 1500; 
+                this.tdzElev = 20; this.papiDist = 1000;
+                this.tch = 52; 
+                this.distBase = 2.0; 
+                this.width = 2.0; 
+                this.side = 'R'; this.dctMode = 'OFF'; this.viewMode = 'P';
+                this.circling = 'OFF'; this.isRotated = false;
+                this.camX = 0; this.camY = -2.0; this.zoom = 120;
+            }
+            updateFromDom() {
+                this.rwId = document.getElementById('rwId').value;
+                
+                // --- [修正] HDGの入力制限 (1-360) ---
+                let rawHdg = parseFloat(document.getElementById('rwHdg').value) || 0;
+                // 360を超えたり1未満の場合、正規化する (例: 365 -> 5, 0 -> 360)
+                if (rawHdg > 360 || rawHdg < 1) {
+                    // 数学的モジュロ演算で 1-360 の範囲に収める
+                    rawHdg = ((rawHdg - 1) % 360 + 360) % 360 + 1;
+                    // 入力欄の表示も書き換える
+                    document.getElementById('rwHdg').value = Math.round(rawHdg);
+                }
+                this.rwHdg = rawHdg;
+                this.wDir = parseFloat(document.getElementById('wDir').value) || 0;
+                this.wSpd = parseFloat(document.getElementById('wSpd').value) || 0;
+                this.vref = parseFloat(document.getElementById('vref').value) || 140;
+                this.palt = parseFloat(document.getElementById('palt').value) || 1500;
+                this.tdzElev = parseFloat(document.getElementById('tdz').value) || 0;
+                this.papiDist = parseFloat(document.getElementById('papi').value) || 1000;
+                this.tch = FlightMath.calcTch(this.papiDist);
+                document.getElementById('calc-tch').innerText = Math.round(this.tch);
+                this.width = parseFloat(document.getElementById('width').value) || 2.0;
+            }
+        }
+
+        class InputController {
+            constructor(state) {
+                this.state = state;
+                this.isDragging = false; this.lastX = 0; this.lastY = 0; this.pinchDist = null;
+                this.setupListeners();
+            }
+            setupListeners() {
+                const map = document.getElementById('map-area');
+                map.addEventListener('mousedown', e => { this.isDragging = true; this.lastX = e.clientX; this.lastY = e.clientY; map.style.cursor = 'grabbing'; });
+                window.addEventListener('mouseup', () => { this.isDragging = false; map.style.cursor = 'grab'; });
+                window.addEventListener('mousemove', e => { if (!this.isDragging) return; e.preventDefault(); this.handlePan(e.clientX, e.clientY); });
+                map.addEventListener('wheel', e => { e.preventDefault(); this.applyZoom(-Math.sign(e.deltaY) * 0.1); }, {passive: false});
+                map.addEventListener('touchstart', e => {
+                    if (e.touches.length === 2) { this.pinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); }
+                    else { this.lastX = e.touches[0].clientX; this.lastY = e.touches[0].clientY; }
+                }, {passive:false});
+                map.addEventListener('touchmove', e => {
+                    e.preventDefault();
+                    if (e.touches.length === 2 && this.pinchDist) {
+                        const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+                        this.state.zoom = Math.max(CONFIG.limits.minZoom, Math.min(this.state.zoom * (dist / this.pinchDist), CONFIG.limits.maxZoom));
+                        this.pinchDist = dist; 
+                    } else if (e.touches.length === 1) { this.handlePan(e.touches[0].clientX, e.touches[0].clientY); }
+                }, {passive:false});
+                map.addEventListener('touchend', () => this.pinchDist = null);
+                document.getElementById('btn-zoom-in').onclick = () => this.applyZoom(0.2);
+                document.getElementById('btn-zoom-out').onclick = () => this.applyZoom(-0.2);
+                document.getElementById('btn-center').onclick = () => this.centerCam();
+                document.getElementById('ctrl-panel').addEventListener('input', () => this.state.updateFromDom());
+                document.getElementById('ctrl-panel').addEventListener('click', e => {
+                    if(e.target.tagName === 'BUTTON') {
+                        if(e.target.id === 'btn-Flip') { this.state.isRotated = !this.state.isRotated; }
+                        else if (e.target.dataset.grp) { this.handleToggle(e.target); }
+                        if(e.target.dataset.grp === 'view' || e.target.dataset.grp === 'circle') this.centerCam();
+                    }
+                });
+            }
+            handlePan(cx, cy) {
+                const dx = cx - this.lastX; const dy = cy - this.lastY;
+                this.lastX = cx; this.lastY = cy;
+                const factor = 1 / this.state.zoom;
+                if(this.state.isRotated) { this.state.camX += dx * factor; this.state.camY += dy * factor; }
+                else { this.state.camX -= dx * factor; this.state.camY -= dy * factor; }
+            }
+            applyZoom(factor) { this.state.zoom = Math.max(CONFIG.limits.minZoom, Math.min(this.state.zoom * (1 + factor), CONFIG.limits.maxZoom)); }
+            handleToggle(btn) {
+                const grp = btn.dataset.grp; const val = btn.dataset.val;
+                if(grp === 'side') this.state.side = val;
+                if(grp === 'dct') this.state.dctMode = val;
+                if(grp === 'view') { this.state.viewMode = val; this.state.zoom = (val==='P'?120:60); }
+                if(grp === 'circle') { this.state.circling = val; if(val!=='OFF') this.state.zoom = 50; }
+                document.querySelectorAll(`button[data-grp="${grp}"]`).forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+            }
+            centerCam() { this.state.camX = 0; this.state.camY = -2.0; }
+        }
+
+        class RenderEngine {
+            constructor(canvasId, windCanvasId, state) {
+                this.cvs = document.getElementById(canvasId);
+                this.ctx = this.cvs.getContext('2d', {alpha: false});
+                this.wCvs = document.getElementById(windCanvasId);
+                this.wCtx = this.wCvs.getContext('2d');
+                this.state = state;
+                this.resize();
+                window.addEventListener('resize', () => this.resize());
+            }
+            resize() {
+                const p = this.cvs.parentElement;
+                this.cvs.width = p.clientWidth; this.cvs.height = p.clientHeight;
+            }
+            render() {
+                const w = this.cvs.width; const h = this.cvs.height; const z = this.state.zoom;
+                this.ctx.fillStyle = CONFIG.colors.bg; this.ctx.fillRect(0, 0, w, h);
+                this.ctx.save(); this.ctx.translate(w/2, h/2);
+                if(this.state.isRotated) this.ctx.rotate(Math.PI);
+                this.ctx.scale(z, z); this.ctx.translate(-this.state.camX, -this.state.camY);
+                this.drawGrid(w, h);
+                if(this.state.circling !== 'OFF') this.drawCirclingArea();
+                
+                this.drawRunwayRealistic();
+                
+                this.drawRangeRings();
+                this.drawPattern();
+                this.ctx.restore();
+                this.drawWindIndicator(); this.updateHUD();
+            }
+
+            drawSmartText(text, x, y, color, bg, sizePt, align="center") {
+                this.ctx.save(); this.ctx.translate(x, y);
+                const inv = 1 / this.state.zoom; this.ctx.scale(inv, inv);
+                if(this.state.isRotated) this.ctx.rotate(Math.PI);
+                this.ctx.font = `bold ${sizePt}px ${CONFIG.font}`;
+                if(bg) {
+                    const m = this.ctx.measureText(text);
+                    this.ctx.fillStyle = bg; this.ctx.fillRect(-(m.width/2)-4, -sizePt/2-4, m.width + 8, sizePt + 8);
+                }
+                this.ctx.fillStyle = color; this.ctx.textAlign = align; this.ctx.textBaseline = "middle";
+                this.ctx.fillText(text, 0, 0);
+                this.ctx.restore();
+            }
+
+            drawGrid(w, h) {
+                const z = this.state.zoom;
+                
+                // 画面に見えている範囲(NM)を計算
+                // (w/z) = 画面の横幅(NM相当), その半分を中心から引く
+                const visW_NM = (w / z) / 2;
+                const visH_NM = (h / z) / 2;
+                
+                // カメライ座標(NM)を中心とした表示範囲
+                const startX = Math.floor(this.state.camX - visW_NM);
+                const endX = Math.floor(this.state.camX + visW_NM) + 1;
+                const startY = Math.floor(this.state.camY - visH_NM);
+                const endY = Math.floor(this.state.camY + visH_NM) + 1;
+
+                this.ctx.lineWidth = 1 / z; // ズームしても線の太さを一定に保つ
+
+                // --- 1NM グリッドの描画 ---
+                this.ctx.beginPath();
+                this.ctx.strokeStyle = "rgba(255, 255, 255, 0.15)"; // 薄い白線
+
+                // 縦線 (X軸)
+                for(let x = startX; x <= endX; x++) {
+                    this.ctx.moveTo(x, this.state.camY - visH_NM);
+                    this.ctx.lineTo(x, this.state.camY + visH_NM);
+                }
+                
+                // 横線 (Y軸)
+                for(let y = startY; y <= endY; y++) {
+                    this.ctx.moveTo(this.state.camX - visW_NM, y);
+                    this.ctx.lineTo(this.state.camX + visW_NM, y);
+                }
+                this.ctx.stroke();
+
+                // --- 原点(0,0) = 滑走路中心 の強調 ---
+                this.ctx.beginPath();
+                this.ctx.strokeStyle = "rgba(255, 255, 255, 0.3)"; // 少し濃く
+                // X軸
+                this.ctx.moveTo(this.state.camX - visW_NM, 0);
+                this.ctx.lineTo(this.state.camX + visW_NM, 0);
+                // Y軸
+                this.ctx.moveTo(0, this.state.camY - visH_NM);
+                this.ctx.lineTo(0, this.state.camY + visH_NM);
+                this.ctx.stroke();
+            }
+
+            drawRunwayRealistic() {
+                // --- [設定] サイズと視認性の向上 ---
+                const len = 1.8;   // 長さ: 1.6 -> 1.8 NM
+                const wid = 0.04;  // 幅: 0.025 -> 0.04 NM (太く表示)
+
+                // 1. 滑走路の舗装面 (少し明るいグレーにして背景と区別)
+                this.ctx.fillStyle = "#333333"; 
+                this.ctx.fillRect(-wid/2, -len, wid, len);
+                
+                // 輪郭線 (エッジを際立たせる)
+                this.ctx.strokeStyle = "#666666";
+                this.ctx.lineWidth = 0.002;
+                this.ctx.strokeRect(-wid/2, -len, wid, len);
+
+                // 2. センターライン (太く、間隔を広く)
+                this.ctx.strokeStyle = "#ffffff"; 
+                this.ctx.lineWidth = 0.003;
+                this.ctx.setLineDash([0.05, 0.05]); 
+                this.ctx.beginPath(); 
+                this.ctx.moveTo(0, -0.02); 
+                this.ctx.lineTo(0, -len+0.02); 
+                this.ctx.stroke(); 
+                this.ctx.setLineDash([]);
+
+                // 3. 滑走路末端標識 (ピアノキー) - 幅に合わせて自動調整
+                this.ctx.fillStyle = "#ffffff";
+                const keys = 8; 
+                const keyGap = 0.002;
+                const keyW = (wid - (keyGap * (keys + 1))) / keys; 
+                const keyLen = 0.04; 
+                
+                let currentX = (-wid/2) + keyGap;
+                for(let i=0; i<keys; i++) {
+                    this.ctx.fillRect(currentX, -0.005, keyW, -keyLen);
+                    currentX += keyW + keyGap;
+                }
+
+                // 4. 接地帯標識 (TDZ Markings) - シンプルかつ大きく
+                const ft500 = 0.082; // 500ft
+                const barW = 0.004;  // バーの太さ
+                const barLen = 0.02; // バーの長さ
+                
+                // 照準点 (Aiming Point) - 1000ft
+                const aimW = 0.012; 
+                const aimLen = 0.06;
+                this.ctx.fillRect(-wid/3 - aimW/2, -(ft500*2), aimW, -aimLen);
+                this.ctx.fillRect( wid/3 - aimW/2, -(ft500*2), aimW, -aimLen);
+
+                // その他のバー (500, 1500, 2000, 2500, 3000)
+                const drawSideBars = (dist, count) => {
+                    for(let c=0; c<count; c++) {
+                        let offset = (wid/2) - 0.004 - (c * 0.006); // 外側から配置
+                        this.ctx.fillRect(-offset - barW, -dist, barW, -barLen);
+                        this.ctx.fillRect(offset, -dist, barW, -barLen);
+                    }
+                };
+                drawSideBars(ft500 * 1, 3); // 500ft
+                drawSideBars(ft500 * 3, 2); // 1500ft
+                drawSideBars(ft500 * 4, 2); // 2000ft
+                drawSideBars(ft500 * 5, 1); // 2500ft
+                drawSideBars(ft500 * 6, 1); // 3000ft
+
+                // 5. 滑走路番号 (RWY ID) - 大きく表示
+                this.ctx.save(); 
+                this.ctx.translate(0, 0.06); // 滑走路の手前に配置
+                this.ctx.scale(0.0035, 0.0035); // 文字サイズ拡大
+                this.ctx.rotate(Math.PI);
+                this.ctx.fillStyle = "#ffffff"; 
+                this.ctx.font = "bold 14px sans-serif"; 
+                this.ctx.textAlign = "center";
+                this.ctx.textBaseline = "middle"; 
+                this.ctx.fillText(this.state.rwId, 0, 0); 
+                this.ctx.restore();
+
+                // 6. スレショルドバー (緑) - 幅広に
+                this.ctx.fillStyle = CONFIG.colors.grn; 
+                this.ctx.fillRect(-wid - 0.01, -0.005, (wid*2) + 0.02, 0.01);
+
+                // 7. PAPI位置表示
+                const papiNm = this.state.papiDist / 6076;
+                this.ctx.fillStyle = "#ffffff"; 
+                // 左側に少し離して四角を表示
+                this.ctx.fillRect(-wid - 0.02, -papiNm, 0.008, -0.008);
+            }
+            drawPattern() {
+                const s = this.state;
+                const tas = s.vref + CONFIG.vAdd;
+                const comps = FlightMath.calcComponents(s.wSpd, s.wDir, s.rwHdg);
+                const rNm = FlightMath.calcTurnRadiusNm(tas, CONFIG.bank);
+                
+                const distBase = s.distBase; 
+                const dwTrk = FlightMath.normDeg(s.rwHdg + 180);
+                const calcSec = FlightMath.calcLegTime(distBase, s.vref, s.wSpd, s.wDir, dwTrk);
+                document.getElementById('calc-time').innerText = Math.round(calcSec);
+
+                const sM = (s.side === 'R') ? 1 : -1;
+                const dwX = sM * s.width;
+                const legY = distBase + rNm;
+                
+                const lw = 3 / s.zoom;
+                this.ctx.lineJoin = "round"; this.ctx.lineCap = "round";
+
+                const drift = FlightMath.calcDrift(tas, comps.xw);
+                const dwHdg = FlightMath.normDeg(s.rwHdg + 180 + drift);
+                const baseTrk = FlightMath.normDeg(s.rwHdg - (sM * 90));
+                
+                // === IAS CALCULATION ===
+                const iasAbm = s.vref + 30;
+                const iasBt = s.vref + 5;
+                const iasFt = s.vref + 5; // Changed from Vref to Vref+5
+
+                // === ALTITUDE & V/S CALCULATION ===
+                // [修正] BT開始から接地までの実飛行距離 (旋回半径 rNm を考慮)
+                const totalArcDist = Math.PI * rNm;                    // 旋回距離 (180度分)
+                const baseStraight = Math.max(0, s.width - (2 * rNm)); // ベースの直線
+                const finalStraight = distBase;                        // ファイナルの直線
+                
+                const totalDescentDist = totalArcDist + baseStraight + finalStraight;
+                
+                const startAlt = s.palt;
+                const endAlt = s.tdzElev + s.tch;
+                const totalDrop = startAlt - endAlt;
+                const descentGrad = totalDrop / totalDescentDist;
+                
+                const altMidBase = s.palt - ((s.width * 0.5) * descentGrad);
+                const altFinalIntercept = s.palt - (s.width * descentGrad); 
+                const approxGs = s.vref + 5 ; 
+                const reqVs = (approxGs * descentGrad) / 60;
+
+                // Abeam
+                this.ctx.save();
+                this.ctx.strokeStyle = "rgba(0, 229, 255, 0.5)"; // 水色で少し明るく
+                this.ctx.lineWidth = 1/s.zoom;
+                this.ctx.setLineDash([5, 5]); // 点線を大きく
+                this.ctx.beginPath(); this.ctx.moveTo(0, 0); this.ctx.lineTo(dwX, 0); this.ctx.stroke();
+                
+                const abmRad = FlightMath.normDeg(s.rwHdg + (sM * 90));
+                const abmRadStr = Math.round(abmRad).toString().padStart(3, '0');
+                
+                // テキストをボックス表示に変更 ("RAD XXX°")
+                // 背景色をつけてグリッド線と重なっても読めるようにする
+                this.drawSmartText(`RAD ${abmRadStr}°`, dwX/2, 0, CONFIG.colors.accent, CONFIG.colors.tagBg, 11);
+                this.ctx.restore();
+
+                // Path
+                this.ctx.beginPath(); this.ctx.strokeStyle = CONFIG.colors.accent; this.ctx.lineWidth = lw;
+                this.ctx.moveTo(dwX, -2); this.ctx.lineTo(dwX, distBase); this.ctx.stroke();
+
+                const tCx = dwX - (sM * rNm);
+                const btStart = (sM === 1) ? 0 : Math.PI;
+                const btEnd = Math.PI / 2;
+                const btCcw = (sM === -1);
+                this.ctx.beginPath(); this.ctx.strokeStyle = CONFIG.colors.mag;
+                this.ctx.arc(tCx, distBase, rNm, btStart, btEnd, btCcw); this.ctx.stroke();
+                
+                this.ctx.beginPath(); this.ctx.strokeStyle = CONFIG.colors.accent;
+                this.ctx.moveTo(dwX - (sM*rNm), legY); this.ctx.lineTo(sM*rNm, legY); this.ctx.stroke();
+
+                const ftStart = Math.PI / 2;
+                const ftEnd = (sM === 1) ? Math.PI : 0;
+                const ftCcw = (sM === -1);
+                this.ctx.beginPath(); this.ctx.strokeStyle = CONFIG.colors.mag;
+                this.ctx.arc(sM*rNm, legY - rNm, rNm, ftStart, ftEnd, ftCcw); this.ctx.stroke();
+                
+                this.ctx.beginPath(); this.ctx.strokeStyle = CONFIG.colors.grn;
+                this.ctx.moveTo(0, legY - rNm); this.ctx.lineTo(0, 0); this.ctx.stroke();
+
+                if(s.dctMode === 'ON') {
+                    // --- [設定] BT' ポイント定義 ---
+                    const btPrimeDist = 2.5;            // 起点: ABMから2.5NM
+                    const btPrimeAlt = s.palt - 150;    // 表示高度: PALT - 150ft
+
+                    // 1. DCTライン描画 (変更: 起点を legY から btPrimeDist に変更)
+                    // これで点線が BT' から伸びるようになります
+                    this.drawDctLines(dwX, btPrimeDist, sM);
+
+                    // 2. BT' シンボルの描画 (黄色)
+                    this.drawWptSymbol(dwX, btPrimeDist, CONFIG.colors.ylw);
+
+                    // 3. 情報タグの描画
+                    this.ctx.save();
+                    this.ctx.translate(dwX, btPrimeDist);
+                    const inv = 1 / s.zoom;
+                    this.ctx.scale(inv, inv);
+                    if (s.isRotated) this.ctx.rotate(Math.PI);
+
+                    // タグの位置計算
+                    const tagW = 90; const tagH = 34;
+                    const tagX = (sM === 1) ? 15 : -15 - tagW; 
+
+                    // 引出線
+                    this.ctx.strokeStyle = CONFIG.colors.ylw;
+                    this.ctx.lineWidth = 1;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(0, 0);
+                    this.ctx.lineTo((sM === 1 ? tagX : tagX + tagW), 0);
+                    this.ctx.stroke();
+
+                    // ボックス背景
+                    this.ctx.fillStyle = CONFIG.colors.tagBg;
+                    this.ctx.fillRect(tagX, -tagH/2, tagW, tagH);
+                    this.ctx.strokeRect(tagX, -tagH/2, tagW, tagH);
+
+                    // 文字情報の表示
+                    this.ctx.textAlign = "left"; 
+                    this.ctx.textBaseline = "middle";
+                    
+                    // タイトル
+                    this.ctx.fillStyle = CONFIG.colors.ylw;
+                    this.ctx.font = "bold 11px " + CONFIG.font;
+                    this.ctx.fillText("BT' (2.5NM)", tagX + 6, -tagH/2 + 10);
+
+                    // 高度
+                    this.ctx.fillStyle = "#ffffff"; 
+                    this.ctx.font = "bold 12px " + CONFIG.font;
+                    this.ctx.fillText(`ALT ${Math.round(btPrimeAlt)}`, tagX + 6, -tagH/2 + 24);
+
+                    this.ctx.restore();
+                }
+                
+                this.drawWptSymbol(dwX, 0, CONFIG.colors.accent);
+                // Pass iasAbm
+                this.drawDataTag(dwX, 0, sM, `ABM ${s.rwId}`, s.palt, iasAbm, dwHdg, 'DW', dwTrk); 
+
+                this.drawWptSymbol(dwX, distBase, CONFIG.colors.mag);
+                // Pass iasBt
+                this.drawDataTag(dwX, distBase, sM, `BT ${s.rwId}`, s.palt, iasBt, baseTrk, 'BT', undefined, calcSec);
+
+                this.drawWptSymbol(0, legY - rNm, CONFIG.colors.grn);
+                // Pass iasFt
+                this.drawDataTag(0, legY - rNm, -sM, `FT ${s.rwId}`, altFinalIntercept, iasFt, s.rwHdg, 'FT');
+
+                this.drawMidBaseBox(dwX/2, legY, altMidBase, baseTrk);
+                this.drawAircraft(dwX, distBase/2, 180 + drift, "#fff");
+                
+                this.hudData = { rNm: rNm, vs: reqVs };
+            }
+
+            drawMidBaseBox(x, y, alt, trk) {
+                this.ctx.save(); this.ctx.translate(x, y);
+                const inv = 1 / this.state.zoom; this.ctx.scale(inv, inv);
+                if(this.state.isRotated) this.ctx.rotate(Math.PI);
+                
+                // ボックスサイズを拡張 (高さ 34 -> 48)
+                const w = 90; const h = 48; const boxY = 20; 
+                
+                this.ctx.fillStyle = CONFIG.colors.tagBg; this.ctx.strokeStyle = CONFIG.colors.amb;
+                this.ctx.lineWidth = 1; this.ctx.fillRect(-w/2, boxY, w, h); this.ctx.strokeRect(-w/2, boxY, w, h);
+                
+                this.ctx.textAlign = "center"; this.ctx.textBaseline = "middle";
+                
+                // 1行目: タイトル (Cyan)
+                this.ctx.fillStyle = CONFIG.colors.accent; 
+                this.ctx.font = "bold 11px " + CONFIG.font; this.ctx.fillText("MID BASE", 0, boxY + 10);
+                
+                // 2行目: TRK (Magenta)
+                this.ctx.fillStyle = CONFIG.colors.mag;
+                this.ctx.font = "bold 12px " + CONFIG.font;
+                this.ctx.fillText(`TRK ${Math.round(trk)}°`, 0, boxY + 23);
+
+                // 3行目: 高度 (Amber) - ここを修正しました
+                this.ctx.fillStyle = CONFIG.colors.amb; 
+                this.ctx.font = "bold 12px " + CONFIG.font;
+                this.ctx.fillText(`MSL ${Math.round(alt)}`, 0, boxY + 36);
+
+                // 引出線
+                this.ctx.beginPath(); this.ctx.strokeStyle = CONFIG.colors.amb;
+                this.ctx.moveTo(0, 0); this.ctx.lineTo(0, boxY); this.ctx.stroke();
+                this.ctx.restore();
+            }
+
+            drawWptSymbol(x, y, color) {
+                this.ctx.save(); this.ctx.translate(x, y);
+                const inv = 1 / this.state.zoom; this.ctx.scale(inv, inv);
+                if(this.state.isRotated) this.ctx.rotate(Math.PI);
+                this.ctx.beginPath(); this.ctx.moveTo(0, -6); this.ctx.lineTo(5, 4); this.ctx.lineTo(-5, 4); this.ctx.closePath();
+                this.ctx.fillStyle = CONFIG.colors.bg; this.ctx.fill();
+                this.ctx.strokeStyle = color; this.ctx.lineWidth = 2; this.ctx.stroke();
+                this.ctx.restore();
+            }
+
+            drawDataTag(x, y, dir, title, alt, spd, hdg, type, extraTrk, timeSec) {
+                this.ctx.save(); this.ctx.translate(x, y);
+                const inv = 1 / this.state.zoom; this.ctx.scale(inv, inv);
+                if(this.state.isRotated) this.ctx.rotate(Math.PI);
+                // Increase Height for Speed line (60 -> 72)
+                const w = 110; const h = 72; const offX = dir * 20; 
+                const bx = (dir > 0) ? offX : offX - w;
+                
+                this.ctx.strokeStyle = "rgba(255,255,255,0.5)"; this.ctx.lineWidth = 1;
+                const lineEnd = (dir > 0) ? bx : bx + w;
+                this.ctx.beginPath(); this.ctx.moveTo(0,0); this.ctx.lineTo(lineEnd, 0); this.ctx.stroke();
+                
+                const col = type==='FT'?CONFIG.colors.grn : type==='BT'?CONFIG.colors.mag : CONFIG.colors.accent;
+                this.ctx.fillStyle = CONFIG.colors.tagBg; this.ctx.strokeStyle = col;
+                this.ctx.fillRect(bx, -h/2, w, h); this.ctx.strokeRect(bx, -h/2, w, h);
+                this.ctx.textAlign = "left"; 
+                this.ctx.fillStyle = col; this.ctx.font = "bold 12px " + CONFIG.font;
+                
+                // Title Line
+                let titleStr = title;
+                if (type === 'BT' && timeSec !== undefined) { titleStr += ` (T:${Math.round(timeSec)}s)`; }
+                this.ctx.fillText(titleStr, bx+6, -h/2+14);
+                
+                // ALT Line
+                this.ctx.fillStyle = "#ccc"; this.ctx.font = "11px " + CONFIG.font;
+                this.ctx.fillText(`ALT: ${Math.round(alt)}`, bx+6, -h/2+28);
+                
+                // SPD Line (NEW)
+                this.ctx.fillStyle = "#e0e0e0";
+                this.ctx.fillText(`SPD: ${Math.round(spd)}KT`, bx+6, -h/2+42);
+
+                // HDG/TRK Line (Shifted down)
+                if (type === 'DW' && extraTrk !== undefined) {
+                    this.ctx.fillText(`TRK: ${Math.round(extraTrk)}°`, bx+6, -h/2+56);
+                    // Hide HDG if space limited or just show TRK for clarity on Abeam? 
+                    // v6.0 had HDG. Let's keep TRK priority for ABM context.
+                } else {
+                    const label = type === 'BT' ? "TRK" : "HDG";
+                    this.ctx.fillText(`${label}: ${Math.round(hdg)}°`, bx+6, -h/2+56);
+                }
+                this.ctx.restore();
+            }
+
+            drawAircraft(x, y, rotDeg, color) {
+                this.ctx.save(); this.ctx.translate(x, y);
+                const inv = 1/this.state.zoom; this.ctx.scale(inv, inv);
+                this.ctx.rotate(FlightMath.toRad(rotDeg));
+                this.ctx.fillStyle = color;
+                this.ctx.beginPath(); this.ctx.moveTo(0, -10); this.ctx.lineTo(6, 6); this.ctx.lineTo(0, 3); this.ctx.lineTo(-6, 6); this.ctx.fill();
+                this.ctx.restore();
+            }
+
+            drawDctLines(x, y, sM) {
+                const len = 6.0; const angs = [30, 60, 90];
+                const cols = [CONFIG.colors.red, CONFIG.colors.ylw, CONFIG.colors.accent];
+                this.ctx.save(); this.ctx.lineWidth = 2/this.state.zoom; this.ctx.setLineDash([0.1, 0.05]);
+                angs.forEach((a, i) => {
+                    const rad = FlightMath.toRad((sM===1 ? 90+a : 90-a) + 180);
+                    const dx = Math.cos(rad)*len; const dy = Math.sin(rad)*len;
+                    this.ctx.strokeStyle = cols[i];
+                    this.ctx.beginPath(); this.ctx.moveTo(x, y); this.ctx.lineTo(x+dx, y+dy); this.ctx.stroke();
+                    this.drawSmartText(a+"°", x+dx*0.6, y+dy*0.6, cols[i], CONFIG.colors.bg, 11);
+                });
+                this.ctx.restore();
+            }
+
+            drawCirclingArea() {
+                const cat = this.state.circling;
+                const rad = cat==='C'?4.2:5.2; const len = 1.6;
+                this.ctx.save(); this.ctx.beginPath();
+                this.ctx.arc(0, -len, rad, Math.PI, 0); this.ctx.lineTo(rad, 0);
+                this.ctx.arc(0, 0, rad, 0, Math.PI); this.ctx.lineTo(-rad, -len);
+                this.ctx.closePath();
+                this.ctx.fillStyle = "rgba(255,23,68,0.1)"; this.ctx.fill();
+                this.ctx.strokeStyle = CONFIG.colors.red; this.ctx.lineWidth = 2/this.state.zoom; this.ctx.stroke();
+                this.drawSmartText(`CAT ${cat} (${rad}NM)`, 0, -len-rad-0.2, CONFIG.colors.red, null, 14);
+                this.ctx.restore();
+            }
+
+            drawRangeRings() {
+                this.ctx.save(); this.ctx.strokeStyle = "rgba(255,255,255,0.2)"; this.ctx.lineWidth = 1/this.state.zoom;
+                [1.0, 2.0, 3.0, 5.0].forEach(r => {
+                    this.ctx.beginPath(); this.ctx.arc(0,0,r,0,Math.PI*2); this.ctx.stroke();
+                    this.drawSmartText(r.toFixed(0)+"NM", r*0.707, r*0.707, "rgba(255,255,255,0.5)", null, 10);
+                });
+                this.ctx.restore();
+            }
+
+            drawWindIndicator() {
+                const w = 60; const h = 60; const cx = 30; const cy = 30;
+                this.wCtx.clearRect(0,0,w,h);
+                this.wCtx.save(); this.wCtx.translate(cx, cy);
+                let rot = FlightMath.toRad(this.state.wDir - this.state.rwHdg + 180);
+                if(this.state.isRotated) rot += Math.PI;
+                this.wCtx.rotate(rot);
+                this.wCtx.fillStyle = CONFIG.colors.grn;
+                this.wCtx.beginPath(); this.wCtx.moveTo(0, -20); this.wCtx.lineTo(-6, -8); this.wCtx.lineTo(6, -8); this.wCtx.fill();
+                this.wCtx.strokeStyle = CONFIG.colors.grn; this.wCtx.lineWidth=3;
+                this.wCtx.beginPath(); this.wCtx.moveTo(0, -20); this.wCtx.lineTo(0, 20); this.wCtx.stroke();
+                this.wCtx.restore();
+                this.wCtx.fillStyle = "#fff"; this.wCtx.font = "bold 10px sans-serif"; this.wCtx.textAlign = "center";
+                this.wCtx.fillText(`${this.state.wDir}°`, cx, cy-8);
+                this.wCtx.fillText(`${this.state.wSpd}KT`, cx, cy+5);
+            }
+
+            updateHUD() {
+                if(!this.hudData) return;
+                document.getElementById('d-rad-nm').innerText = this.hudData.rNm.toFixed(2) + " NM";
+                document.getElementById('d-vs').innerText = "-" + Math.round(this.hudData.vs/10)*10;
+                document.getElementById('d-zoom').innerText = Math.round(this.state.zoom/1.2) + "%";
+                document.getElementById('d-bank').innerText = CONFIG.bank + "°";
+            }
+        }
+
+        const App = {
+            init() {
+                this.state = new AppState();
+                this.renderer = new RenderEngine('cvs', 'wind-cvs', this.state);
+                this.input = new InputController(this.state);
+                this.loop();
+            },
+            loop() {
+                this.state.updateFromDom();
+                this.renderer.render();
+                requestAnimationFrame(() => this.loop());
+            }
+        };
+        window.onload = () => App.init();
+    </script>
+</body>
+</html>

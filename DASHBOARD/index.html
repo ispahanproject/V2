@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>IFSP - HOME</title>
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CO-PILOT">
+
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="../css/v2_style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
+    
+</head>
+<body class="home-body">
+    <div class="home-modal-container">
+        <div class="home-modal-card">
+            
+            <div class="home-header">
+                <div class="header-accent-bar"></div>
+                <div>
+                    <div class="hero-title">INTEGRATED FLIGHT SUPPORT PROJECT</div>
+                    <div class="header-sub">ENTIRE PILOT SUPPORT TOOL</div>
+                </div>
+            </div>
+
+            <div class="action-grid">
+    
+    <a href="#" class="action-card action-interval action-disabled">
+        <div class="cs-stamp">COMING SOON</div>
+        <div class="action-icon">🛡️</div>
+        <div class="action-title">TEM<br>ASSISTANT</div>
+        <div class="action-sub">PRE-FLIGHT</div>
+    </a>
+
+    <div onclick="location.href='apps/v2_copilot.html'" class="action-card action-ship" style="cursor:pointer;">
+        <div class="action-icon">✈️</div>
+        <div class="action-title">CO-PILOT</div>
+        <div class="action-sub">IN-FLIGHT</div>
+    </div>
+
+    <div onclick="location.href='apps/v2_reference.html'" class="action-card action-ref" style="cursor:pointer;">
+        <div class="action-icon">📖</div>
+        <div class="action-title">QUICK<br>REFERENCE</div>
+        <div class="action-sub">OM / QRH</div>
+    </div>
+
+    <div onclick="location.href='apps/ENRT_DATA.html'" class="action-card action-map" style="cursor:pointer;">
+                    <div class="action-icon">🗺️</div>
+                    <div class="action-title">SCENERY/ENRT HOLD<br>MAP</div>
+                    <div class="action-sub">SITUATION AWARENESS</div>
+                </div>
+
+    <div onclick="location.href='apps/des_planning_v2.html'" class="action-card action-orange" style="cursor:pointer;">
+        <div class="action-icon">📉</div>
+        <div class="action-title">DESCENT<br>PLANNER</div>
+        <div class="action-sub">STAR / APP</div>
+    </div>
+
+    <div onclick="location.href='apps/VFR(TIME%20CHECK)%20calc.html'" class="action-card action-cyan" style="cursor:pointer;">
+        <div class="action-icon">🚁</div>
+        <div class="action-title">VFR<br>ASSIST</div>
+        <div class="action-sub">VISUAL APP</div>
+    </div>
+
+    <div onclick="location.href='apps/PAPI%20ANALIZER.html'" class="action-card action-pink" style="cursor:pointer;">
+        <div class="action-icon">🚥</div>
+        <div class="action-title">PAPI<br>ANALYZER</div>
+        <div class="action-sub">LANDING</div>
+    </div>
+
+</div>
+
+            <button class="cancel-btn">SYSTEM SETTINGS</button>
+        </div>
+    </div>
+
+    <script>
+    // ▼▼▼ ここから：強力なキャッシュ削除コード ▼▼▼
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+        for(let registration of registrations) {
+            registration.unregister(); // 既存のSWを解除
+            console.log("Service Worker Unregistered.");
+        }
+    });
+    // キャッシュストレージも空にする
+    caches.keys().then(function(names) {
+        for (let name of names) caches.delete(name);
+        console.log("Caches Deleted.");
+    });
+}
+// ▲▲▲ ここまで ▲▲▲
+
+
+    // サービスワーカーの登録
+    // if ('serviceWorker' in navigator) {
+    //    window.addEventListener('load', () => {
+    //        navigator.serviceWorker.register('./sw.js')
+    //            .then(reg => console.log('SW registered!', reg))
+    //            .catch(err => console.log('SW failed:', err));
+    //    });
+    // }
+    </script>
+
+</body>
+</html>
