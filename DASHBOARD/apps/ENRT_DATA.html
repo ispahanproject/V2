@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>J-SA MAP (Situational Awareness)</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        /* --- DARK COCKPIT THEME --- */
+        :root { 
+            --bg: #050505; --panel: rgba(20, 20, 20, 0.95); --border: #444;
+            --volcano: #ff3333; --peak: #FFBF00; /* Amber */ --hold: #00ffff;
+            --apt: #ffffff; --vor: #00ff00; --ndb: #ff00ff;
+        }
+        body, html { margin:0; padding:0; height:100%; background:var(--bg); font-family:'Consolas',monospace; overflow:hidden; }
+        #map { height:100%; width:100%; background:#0a0a0a; }
+
+        /* Header Info */
+        .status-bar {
+            position: absolute; top: 15px; left: 60px; z-index: 1000;
+            background: var(--panel); border: 1px solid var(--border); 
+            padding: 8px 15px; border-radius: 4px; pointer-events: none;
+            color: #00ff00; font-size: 14px; font-weight: bold; 
+            box-shadow: 0 4px 10px rgba(0,0,0,0.8);
+        }
+
+        /* --- ICONS --- */
+        /* Terrain (VFR Chart Style - Name Emphasized) */
+        .terrain-marker-container { 
+            display: flex; align-items: center; pointer-events: none; 
+            text-shadow: 2px 2px 0 #000, -1px -1px 0 #000; 
+        }
+        .terrain-symbol { font-size: 18px; line-height: 1; margin-right: 4px; }
+        .terrain-info { display: flex; flex-direction: column; line-height: 1.0; }
+        
+        /* 名前を大きく、標高を小さく変更 */
+        .terrain-name { font-size: 14px; font-weight: bold; white-space: nowrap; letter-spacing: 0.5px; }
+        .terrain-alt { font-size: 11px; font-weight: normal; opacity: 0.9; }
+        
+        .color-volcano { color: var(--volcano); }
+        .color-peak { color: var(--peak); } /* Amber */
+
+        /* Holding Pattern */
+        .hold-icon {
+            display: flex; align-items: center; justify-content: center;
+            border: 1.5px solid var(--hold); border-radius: 12px;
+            background: rgba(0, 50, 50, 0.6); color: var(--hold);
+            font-size: 10px; font-weight: bold; white-space: nowrap;
+            transition: 0.2s; box-shadow: 0 0 5px rgba(0,255,255,0.3);
+        }
+        .hold-icon:hover { background: rgba(0, 255, 255, 0.2); z-index: 9999; cursor: pointer; }
+
+        /* NAVAIDS (Simple geometric shapes) */
+        .nav-icon-apt {
+            width: 10px; height: 10px; border: 2px solid var(--apt); border-radius: 50%;
+            background: #000; box-shadow: 0 0 4px var(--apt);
+        }
+        .nav-icon-vor {
+            width: 12px; height: 12px; border: 2px solid var(--vor); 
+            background: #000; transform: rotate(45deg); /* Diamond/Square */
+        }
+        .nav-icon-ndb {
+            width: 8px; height: 8px; border: 1px dotted var(--ndb); border-radius: 50%;
+            background: transparent;
+        }
+        
+        /* Labels for NAVAIDS (Permanent Display when Layer Active) */
+        .nav-label {
+            font-size: 10px !important; 
+            color: #fff !important; 
+            background: transparent !important; 
+            border: none !important;
+            box-shadow: none !important;
+            text-shadow: 1px 1px 0 #000, -1px -1px 0 #000;
+            white-space: nowrap;
+            margin-left: 5px; /* アイコンからの距離 */
+        }
+        .leaflet-tooltip-left:before, .leaflet-tooltip-right:before { border: none !important; }
+
+        /* --- LEAFLET LAYER CONTROL (FILTER PANEL) STYLING v2 --- */
+        
+        /* 1. パネル全体のベースデザイン */
+        .leaflet-control-layers {
+            background: rgba(12, 16, 20, 0.95) !important; /* より深い黒 */
+            backdrop-filter: blur(12px) !important;
+            -webkit-backdrop-filter: blur(12px) !important;
+            border: 1px solid rgba(0, 229, 255, 0.4) !important; /* 枠線を少し明るく */
+            border-radius: 4px !important;
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.1) !important;
+            color: #e0e0e0 !important;
+            font-family: 'Consolas', 'Monaco', monospace !important;
+            transition: all 0.3s ease;
+        }
+
+        /* 2. 展開時のスタイル */
+        .leaflet-control-layers-expanded {
+            padding: 15px 18px !important;
+            min-width: 200px; /* 少し幅を広げる */
+        }
+
+        /* 3. 各項目の行スタイル（フォント修正） */
+        .leaflet-control-layers label {
+            display: flex !important;
+            align-items: center;
+            margin-bottom: 8px; /* 行間を少し広げる */
+            padding: 5px 10px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            
+            /* ★ フォントをおしゃれにする設定 ★ */
+            font-size: 12px;
+            font-weight: 600;        /* 太く */
+            letter-spacing: 1.5px;   /* 文字間を広げる */
+            text-transform: uppercase; /* 大文字に統一 */
+            text-shadow: 0 0 2px rgba(255, 255, 255, 0.2); /* ほのかな発光 */
+        }
+
+        /* ホバー時のハイライト */
+        .leaflet-control-layers label:hover {
+            background: rgba(0, 229, 255, 0.15);
+            color: #fff !important;
+            text-shadow: 0 0 5px rgba(0, 229, 255, 0.6); /* ホバー時に光らせる */
+            transform: translateX(3px); /* 少し右に動くアニメーション */
+        }
+
+        /* 4. チェックボックスのカスタマイズ */
+        .leaflet-control-layers-selector {
+            margin-top: 0 !important;
+            margin-right: 12px !important;
+            accent-color: #00e5ff;
+            cursor: pointer;
+            width: 14px;
+            height: 14px;
+            opacity: 0.8;
+        }
+
+        /* 5. セパレーター線 */
+        .leaflet-control-layers-separator {
+            border-top: 1px dashed rgba(255, 255, 255, 0.15) !important;
+            margin: 10px 0 !important;
+        }
+
+        /* River Style */
+        .river-marker-container { 
+            display: flex; flex-direction: column; align-items: center; 
+            pointer-events: none; text-shadow: 1px 1px 0 #000;
+        }
+        .river-symbol { font-size: 14px; color: #4488ff; font-weight: bold; }
+        .river-name { font-size: 10px; color: #4488ff; font-weight: bold; white-space: nowrap; }
+
+        /* LAKE Style */
+        .color-lake { color: #00BFFF; } /* DeepSkyBlue */
+        
+        .lake-marker-container { 
+            display: flex; flex-direction: column; align-items: center; 
+            pointer-events: none; text-shadow: 1px 1px 0 #000, -1px -1px 0 #000;
+        }
+        .lake-symbol { font-size: 16px; margin-bottom: -4px; }
+        .lake-name { font-size: 11px; font-weight: bold; font-style: italic; white-space: nowrap; }
+    </style>
+</head>
+<body>
+
+    <a href="../index.html" style="
+    position: absolute; top: 15px; left: 15px; z-index: 2000;
+    background: rgba(16, 20, 24, 0.85);
+    border: 1px solid #00e5ff; border-radius: 4px;
+    color: #00e5ff; text-decoration: none;
+    padding: 6px 12px; font-weight: bold; font-size: 14px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    backdrop-filter: blur(5px);
+    display: flex; align-items: center; justify-content: center;
+">🏠</a>
+
+    <div class="status-bar">J-SA INTEGRATED MAP</div>
+    <div id="map"></div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script src="../js/terrain_db.js"></script>
+    <script src="../js/holding_points.js"></script>
+    <script src="../js/navaids.js"></script>
+    <script src="../js/route_db.js"></script>
+    <script src="../js/airway_db.js"></script>
+
+    <script>
+        // 1. Initialize Map
+        const map = L.map('map', { 
+            center: [35.5, 138.0], 
+            zoom: 6, 
+            zoomControl: false,
+            preferCanvas: true 
+        });
+        L.control.zoom({ position: 'bottomright' }).addTo(map);
+        
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; CARTO', subdomains: 'abcd', maxZoom: 19
+        }).addTo(map);
+
+        // 2. Define Layers
+        // 初期表示設定: AIRPORTとHOLDING、ROUTEのみ .addTo(map) を付ける
+        const layers = {
+            volcano: L.layerGroup(),            // OFF
+            peak:    L.layerGroup(),            // OFF
+            lake:    L.layerGroup(),            // OFF
+            river:   L.layerGroup(),            // OFF
+            hold:    L.layerGroup().addTo(map), // ★ON (初期表示)
+            apt:     L.layerGroup().addTo(map), // ★ON (初期表示)
+            vor:     L.layerGroup(),            // OFF
+            ndb:     L.layerGroup(),            // OFF
+        
+        };
+
+        // --- LOAD TERRAIN (Volcano/Peak) ---
+        if(typeof TERRAIN_DB !== 'undefined') {
+            for(let key in TERRAIN_DB) {
+                const t = TERRAIN_DB[key];
+                const isVolcano = (t.type === 'VOLCANO');
+                const colorClass = isVolcano ? 'color-volcano' : 'color-peak';
+                
+                // HTML構造: 名前を上に、標高を下に配置して強調
+                const iconHtml = `
+                    <div class="terrain-marker-container">
+                        <div class="terrain-symbol ${colorClass}">▲</div>
+                        <div class="terrain-info">
+                            <span class="terrain-name ${colorClass}">${key}</span>
+                            <span class="terrain-alt ${colorClass}">${t.alt}</span>
+                        </div>
+                    </div>`;
+                
+                const marker = L.marker([t.lat, t.lon], {
+                    icon: L.divIcon({ className: '', html: iconHtml, iconSize: [120,35], iconAnchor: [10,18] })
+                }).bindTooltip(`${key}: ${t.alt}ft`, { direction:'top', offset:[0,-15], opacity:0 }); // Tooltipは補助用(非表示気味)
+
+                marker.minZoom = t.min_zoom || 6;
+                marker.addTo(isVolcano ? layers.volcano : layers.peak);
+            }
+        }
+
+        // --- LOAD LAKES (★新規追加) ---
+        if(typeof LAKE_DB !== 'undefined') {
+            for(let key in LAKE_DB) {
+                const l = LAKE_DB[key];
+                // 湖のアイコン: 水色の菱形や波線、あるいはシンプルに名前
+                const iconHtml = `
+                    <div class="lake-marker-container color-lake">
+                        <div class="lake-name">${key}</div>
+                        <div style="font-size:9px; opacity:0.8;">(${l.elev}ft)</div>
+                    </div>`;
+                
+                const marker = L.marker([l.lat, l.lon], {
+                    icon: L.divIcon({ className: '', html: iconHtml, iconSize: [100,30], iconAnchor: [50,15] })
+                });
+
+                marker.minZoom = l.min_zoom || 6;
+                marker.addTo(layers.lake);
+            }
+        }
+
+        // --- LOAD HOLDING PATTERNS ---
+        if(typeof HOLDING_DB !== 'undefined') {
+            for(let key in HOLDING_DB) {
+                const h = HOLDING_DB[key];
+                L.marker([h.lat, h.lon], {
+                    icon: L.divIcon({ className: 'hold-icon', html: `⬭ ${key}`, iconSize: [60,20] })
+                }).bindPopup(`
+                    <div class="popup-header">${key} HOLD</div>
+                    <div class="data-row"><span>INBD:</span> <b>${h.inbound}°</b></div>
+                    <div class="data-row"><span>TURN:</span> <b style="color:${h.turn==='RIGHT'?'#0f0':'#f0f'}">${h.turn}</b></div>
+                    <div class="data-row"><span>MHA:</span> <b style="color:#ffaa00">${h.mha}</b></div>
+                    <div class="data-row"><span>LEG:</span> <span>${h.leg || '-'}</span></div>
+                    <div class="data-row"><span>MAX SPD:</span> <span>${h.max_ias ? h.max_ias+'kt' : '-'}</span></div>
+                `).addTo(layers.hold);
+            }
+        }
+
+        // --- LOAD NAVAIDS & AIRPORTS (from navaids.js) ---
+        if(typeof NAV_DB !== 'undefined') {
+            for(let key in NAV_DB) {
+                const data = Array.isArray(NAV_DB[key]) ? NAV_DB[key][0] : NAV_DB[key];
+                if(!data.lat || !data.lon) continue;
+
+                let layerTarget = null;
+                let iconClass = '';
+                let zIndexOffset = 0;
+                let labelColor = '#fff';
+
+                if (data.type === 'APT') {
+                    layerTarget = layers.apt;
+                    iconClass = 'nav-icon-apt';
+                    zIndexOffset = 1000;
+                } else if (data.type === 'VOR' || data.type === 'VORTAC') {
+                    layerTarget = layers.vor;
+                    iconClass = 'nav-icon-vor';
+                    labelColor = '#00ff00';
+                } else if (data.type === 'NDB') {
+                    layerTarget = layers.ndb;
+                    iconClass = 'nav-icon-ndb';
+                    labelColor = '#ff00ff';
+                }
+
+                if (layerTarget) {
+                    const marker = L.marker([data.lat, data.lon], {
+                        icon: L.divIcon({ className: iconClass, iconSize:null }),
+                        zIndexOffset: zIndexOffset
+                    });
+                    
+                    // 【変更点】 permanent: true にして常時表示させる
+                    marker.bindTooltip(key, { 
+                        permanent: true, 
+                        direction: 'right', 
+                        offset: [12, 0], 
+                        className: 'nav-label' 
+                    });
+                    
+                    // スタイル微調整（Tooltipの色を種別ごとに変える場合）
+                    // marker.on('add', function() { this.getTooltip()._container.style.color = labelColor; });
+
+                    marker.addTo(layerTarget);
+                }
+            }
+        }
+
+        // --- LOAD RIVERS (★新規追加) ---
+        if(typeof RIVER_DB !== 'undefined') {
+            for(let key in RIVER_DB) {
+                const r = RIVER_DB[key];
+                // 川のアイコン: 青い波線(≈)と名前
+                const iconHtml = `
+                    <div class="river-marker-container">
+                        <div class="river-symbol">≈</div>
+                        <div class="river-name">${key}</div>
+                    </div>`;
+                
+                const marker = L.marker([r.lat, r.lon], {
+                    icon: L.divIcon({ className: '', html: iconHtml, iconSize: [100,30], iconAnchor: [50,15] })
+                }).bindTooltip(`${key}: ${r.remark}`, { direction:'top', offset:[0,-10], opacity:0.8 });
+
+                marker.minZoom = r.min_zoom || 7;
+                marker.addTo(layers.river);
+            }
+        }
+
+
+        // 3. Layer Control (Stylish Labels)
+        const overlays = {
+            // TERRAIN Category
+            "<span style='color:#ff3333;'>🌋 VOLCANO</span>": layers.volcano,
+            "<span style='color:#FFBF00;'>🏔️ TERRAIN</span>": layers.peak,
+            "<span style='color:#00BFFF;'>💧 LAKES</span>": layers.lake,
+            "<span style='color:#4488ff;'>≈ RIVERS</span>": layers.river,
+            
+            // AERONAUTICAL Category
+            "<span style='color:#ffffff; font-weight:bold; border-left:3px solid #fff; padding-left:5px;'>✈️ AIRPORT</span>": layers.apt,
+            "<span style='color:#00ffff;'>⬭ HOLDING</span>": layers.hold,
+            "<span style='color:#00ff00;'>⬡ VOR</span>": layers.vor,
+            "<span style='color:#ff00ff;'>● NDB</span>": layers.ndb
+        };
+
+        L.control.layers(null, overlays, { collapsed: true, position: 'topright' }).addTo(map);
+
+        
+        
+        // 4. Zoom Level Decluttering Logic
+        function updateMapDisplay() {
+            const z = map.getZoom();
+            [layers.volcano, layers.peak, layers.river].forEach(grp => {
+                if(!map.hasLayer(grp)) return;
+                grp.eachLayer(m => {
+                    if (m.minZoom) {
+                        const shouldShow = z >= m.minZoom;
+                        if (m.getElement()) m.getElement().style.display = shouldShow ? 'block' : 'none';
+                    }
+                });
+            });
+        }
+
+        map.on('zoomend', updateMapDisplay);
+        map.on('layeradd', updateMapDisplay);
+        updateMapDisplay(); 
+
+        // ---------------------------------------------------------
+        // 6. GPS / CURRENT LOCATION LOGIC (New)
+        // ---------------------------------------------------------
+        
+        // GPSレイヤー（現在地マーカー用）
+        const gpsLayer = L.layerGroup().addTo(map);
+
+        // GPSボタンコントロールの作成
+        L.Control.GPS = L.Control.extend({
+            onAdd: function(map) {
+                const btn = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+                
+                // ボタンのスタイル設定
+                btn.innerHTML = '⌖'; // Target Icon
+                btn.style.backgroundColor = 'rgba(16, 20, 24, 0.9)';
+                btn.style.color = '#00e5ff';
+                btn.style.fontSize = '22px';
+                btn.style.fontWeight = 'bold';
+                btn.style.width = '34px';
+                btn.style.height = '34px';
+                btn.style.lineHeight = '34px';
+                btn.style.textAlign = 'center';
+                btn.style.cursor = 'pointer';
+                btn.style.border = '1px solid rgba(0, 229, 255, 0.5)';
+                btn.style.borderRadius = '4px';
+                btn.style.backdropFilter = 'blur(5px)';
+                btn.title = "Show Current Location";
+
+                // クリック時の動作
+                btn.onclick = function() {
+                    btn.innerHTML = '<span style="animation:blink 1s infinite">●</span>'; // 検索中アニメ
+                    map.locate({setView: true, maxZoom: 10, timeout: 10000});
+                };
+                return btn;
+            }
+        });
+
+        // ボタンを地図に追加（右下）
+        new L.Control.GPS({ position: 'bottomright' }).addTo(map);
+
+        // 位置情報取得成功時の処理
+        map.on('locationfound', function(e) {
+            gpsLayer.clearLayers();
+            
+            // 精度円（薄い青）
+            L.circle(e.latlng, {
+                radius: e.accuracy / 2,
+                color: '#00e5ff',
+                fillColor: '#00e5ff',
+                fillOpacity: 0.1,
+                weight: 1
+            }).addTo(gpsLayer);
+
+            // 現在地マーカー（青いドット）
+            L.circleMarker(e.latlng, {
+                radius: 6,
+                color: '#fff',
+                fillColor: '#00e5ff',
+                fillOpacity: 1,
+                weight: 2
+            }).bindPopup(`<b>CURRENT POSITION</b><br>Lat: ${e.latlng.lat.toFixed(4)}<br>Lon: ${e.latlng.lng.toFixed(4)}`).addTo(gpsLayer).openPopup();
+
+            // ボタンのアイコンを戻す
+            document.querySelector('.leaflet-control-gps').innerHTML = '⌖';
+        });
+
+        // エラー処理（拒否された場合など）
+        map.on('locationerror', function(e) {
+            alert("Location access denied or timeout.");
+            document.querySelector('.leaflet-control-gps').innerHTML = '⌖';
+        });
+
+        // 点滅アニメーション用スタイル追加
+        const styleSheet = document.createElement("style");
+        styleSheet.innerText = "@keyframes blink { 0% {opacity:1;} 50% {opacity:0.3;} 100% {opacity:1;} }";
+        document.head.appendChild(styleSheet);
+
+    </script>
+</body>
+</html>
