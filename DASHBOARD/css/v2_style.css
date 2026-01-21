@@ -3009,3 +3009,25 @@ select.wind-v5-input {
 .action-map .action-icon {
     text-shadow: 0 0 15px rgba(0, 229, 255, 0.6);
 }
+
+/* =========================================
+   NEW COLOR: LIME (MINIMUM CIRCLE)
+   ========================================= */
+
+.action-lime {
+    border-color: #84cc16; /* Lime Green */
+}
+
+.action-lime:not(.action-disabled):hover {
+    background: rgba(132, 204, 22, 0.1);
+    border-color: #a3e635;
+    box-shadow: 0 0 20px rgba(132, 204, 22, 0.2);
+}
+
+.action-lime .action-title {
+    color: #a3e635; /* 文字は明るいライム色 */
+}
+
+.action-lime .action-icon {
+    text-shadow: 0 0 15px rgba(132, 204, 22, 0.6);
+}
