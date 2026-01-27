@@ -659,7 +659,7 @@
             statusEl.innerText = "⏳ Loading hot_database.json...";
             
             // 同一階層のJSONファイルをフェッチ
-            const response = await fetch('hot_database_v2.json');
+            const response = await fetch('../js/hot_database_v2.json');
             
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
