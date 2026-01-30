@@ -405,7 +405,7 @@
         <label>Fluid Selection</label>
 
         <div class="fluid-selector">
-            <input type="radio" name="fluidOption" id="fluid1" value="TYPE4_ABCS_PLUS" onchange="calcHOT()">
+            <input type="radio" name="fluidOption" id="fluid1" value="TYPE4_ABCS_PLUS" checked onchange="calcHOT()">
             <label class="fluid-btn" for="fluid1">
                 <span>ABC-S PLUS (Type IV)</span>
                 <span class="fluid-icon" onclick="openFluidModal('table_abcs.png', event)">📊</span>
@@ -417,7 +417,7 @@
                 <span class="fluid-icon" onclick="openFluidModal('table_safewing.png', event)">📊</span>
             </label>
 
-            <input type="radio" name="fluidOption" id="fluid3" value="TYPE4_POLAR_GUARD" checked onchange="calcHOT()">
+            <input type="radio" name="fluidOption" id="fluid3" value="TYPE4_POLAR_GUARD" onchange="calcHOT()">
             <label class="fluid-btn" for="fluid3">
                 <span>POLAR GUARD XTEND (Type IV)</span>
                 <span class="fluid-icon" onclick="openFluidModal('table_polar.png', event)">📊</span>
@@ -431,10 +431,10 @@
         
         <label>Time of Day</label>
         <div class="time-selector">
-            <input type="radio" name="timeOption" id="timeDay" value="day" onchange="calcHOT()">
+            <input type="radio" name="timeOption" id="timeDay" value="day"checked onchange="calcHOT()">
             <label class="time-btn" for="timeDay">☀️ Day</label>
 
-            <input type="radio" name="timeOption" id="timeNight" value="night" checked onchange="calcHOT()">
+            <input type="radio" name="timeOption" id="timeNight" value="night"onchange="calcHOT()">
             <label class="time-btn" for="timeNight">🌙 Night</label>
         </div>
 
