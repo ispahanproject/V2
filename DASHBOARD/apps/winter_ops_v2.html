@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JAL B737 Winter Ops Dashboard V21 (Exact Code Mapping)</title>
+    <style>
+        :root { 
+            --jal-red: #E10009; 
+            --bg: #121212; 
+            --card: #1E1E1E; 
+            --text: #E0E0E0; 
+            --accent: #00A3AF; 
+            --border: #333;
+            --input-bg: #2D2D2D;
+        }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            background: var(--bg); 
+            color: var(--text); 
+            padding: 20px; 
+            display: flex; 
+            justify-content: center; 
+            margin: 0;
+        }
+        .container { 
+            width: 100%; 
+            max-width: 600px;
+            background: var(--card); 
+            border-radius: 16px; 
+            border: 1px solid var(--border); 
+            padding: 20px; 
+            box-shadow: 0 4px 20px rgba(0,0,0,0.6); 
+        }
+        h2 { 
+            border-left: 5px solid var(--jal-red); 
+            padding-left: 15px; 
+            color: white; 
+            margin: 0 0 20px 0; 
+            font-size: 1.5rem;
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+        }
+        
+        label { 
+            display: block; 
+            font-size: 0.75rem; 
+            color: #888; 
+            margin-bottom: 8px; 
+            margin-top: 20px; 
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        textarea, input[type="text"], input[type="number"] { 
+            width: 100%; 
+            padding: 14px; 
+            background: var(--input-bg); 
+            border: 1px solid #444; 
+            color: white; 
+            border-radius: 8px; 
+            font-size: 1rem; 
+            box-sizing: border-box; 
+            transition: border-color 0.2s;
+        }
+        textarea:focus, input:focus { border-color: var(--accent); outline: none; }
+        textarea { height: 85px; font-family: "Menlo", "Consolas", monospace; color: #00FF00; line-height: 1.4; }
+
+        /* API Section */
+        .api-section { display: flex; gap: 10px; margin-bottom: 10px; background: #252525; padding: 15px; border-radius: 10px; border: 1px solid #444; }
+        .api-input { flex: 1; font-weight: bold; text-transform: uppercase; text-align: center; letter-spacing: 2px; font-size: 1.2rem; }
+        .api-btn { flex: 1.5; background: var(--accent); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.95rem; transition: 0.2s; }
+        .api-status { font-size: 0.75rem; color: #666; margin-bottom: 25px; text-align: right; font-family: monospace; }
+
+        /* Tabs */
+        .tabs { display: flex; gap: 8px; margin-bottom: 25px; border-bottom: 2px solid #333; padding-bottom: 15px; }
+        .tab-btn { flex: 1; padding: 12px; background: transparent; border: 1px solid transparent; color: #666; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .tab-btn.active { background: #2D2D2D; color: white; border-color: #444; border-bottom: 3px solid var(--jal-red); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* Fluid Selector */
+        .fluid-selector { display: flex; flex-direction: column; gap: 10px; margin-top: 5px; }
+        .fluid-selector input { display: none; }
+        .fluid-btn { padding: 16px; background: var(--input-bg); border: 1px solid #444; border-radius: 8px; cursor: pointer; color: #AAA; font-size: 1rem; transition: all 0.2s ease; position: relative; font-weight: 500; }
+        .fluid-selector input:checked + .fluid-btn { background: rgba(0, 163, 175, 0.15); border-color: var(--accent); color: white; box-shadow: 0 0 12px rgba(0, 163, 175, 0.2); }
+        .fluid-selector input:checked + .fluid-btn::after { content: "✔"; position: absolute; right: 15px; color: var(--accent); font-weight: bold; }
+
+        /* Time Selector */
+        .time-selector { display: flex; gap: 12px; margin-top: 5px; }
+        .time-selector input { display: none; }
+        .time-btn { flex: 1; padding: 15px; background: var(--input-bg); border: 1px solid #444; border-radius: 8px; text-align: center; cursor: pointer; color: #888; font-weight: bold; font-size: 1.1rem; transition: all 0.2s ease; }
+        #timeDay:checked + .time-btn { background: #E6C200; color: #111; border-color: #FFD700; box-shadow: 0 0 15px rgba(255, 215, 0, 0.4); }
+        #timeNight:checked + .time-btn { background: #392b83; color: #FFF; border-color: #6A5ACD; box-shadow: 0 0 15px rgba(72, 61, 139, 0.6); }
+
+        /* Result Area */
+        button { width: 100%; padding: 16px; background: var(--jal-red); color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1.1rem; margin-top: 30px; letter-spacing: 1px; box-shadow: 0 4px 10px rgba(225, 0, 9, 0.3); }
+        .hot-display { text-align: center; background: rgba(0, 163, 175, 0.08); border: 1px solid var(--accent); padding: 20px; border-radius: 12px; margin-top: 25px; display: none; }
+        .hot-time { font-size: 3rem; font-weight: 800; color: rgb(246, 207, 12); margin: 10px 0; letter-spacing: -1px; }
+
+        /* Basis Grid & Limit */
+        .calc-basis-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 20px; background: rgba(0,0,0,0.2); padding: 15px; border-radius: 8px; border: 1px solid #333; }
+        .basis-item { display: flex; flex-direction: column; align-items: center; }
+        .basis-item.full-width { grid-column: span 3; border-top: 1px solid #444; padding-top: 10px; margin-top: 5px; }
+        .basis-label { font-size: 0.65rem; color: #999; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;}
+        .basis-val { font-size: 1.1rem; font-weight: bold; color: #FFF; }
+        .limit-section { margin-top: 25px; padding: 20px; background: #252525; border: 1px solid #444; border-radius: 12px; }
+        .limit-display-box { margin-top: 20px; text-align: center; border-top: 1px solid #444; padding-top: 15px; }
+        
+        /* Helpers */
+        /* ▼▼▼ 修正: ロードセクションを表示(display:block)に戻しデザイン適用 ▼▼▼ */
+        .load-section { 
+            background: #252525; 
+            padding: 12px; 
+            border-radius: 10px; 
+            border: 1px dashed #555; 
+            text-align: center; 
+            margin-bottom: 15px; 
+            display: block; /* 表示する */
+        }
+        .custom-file-upload { 
+            display: inline-block; 
+            padding: 10px 20px; 
+            background: #444; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            font-size: 0.9rem; 
+            color: white; 
+            font-weight: bold; 
+            transition: 0.2s;
+            border: 1px solid #555;
+        }
+        .custom-file-upload:hover { background: #555; border-color: #777; }
+        input[type="file"] { display: none; }
+        /* ▲▲▲ 修正ここまで ▲▲▲ */
+        
+        /* Snowtam Styles */
+        .rwycc-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-top: 15px; text-align: center; }
+        .rwycc-box { background: #333; padding: 10px; border-radius: 6px; border: 1px solid #444; }
+        .rwycc-val { font-size: 2.5rem; font-weight: bold; display: block; margin: 5px 0; }
+        .rwycc-label { font-size: 0.7rem; color: #888; }
+        .ba-display { font-size: 0.9rem; color: #00A3AF; font-weight: bold; margin-top: 5px; }
+
+        /* ▼▼▼ 追加: モーダルのスタイル ▼▼▼ */
+        .modal {
+            display: none; /* 初期状態は非表示 */
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0,0,0,0.8); /* 背景を暗く */
+            backdrop-filter: blur(5px);
+            animation: fadeIn 0.3s;
+        }
+        .modal-content {
+            background-color: #252525;
+            margin: 5% auto; /* 上下の余白を少し狭めて画面を広く使う */
+            padding: 15px;
+            border: 1px solid #444;
+            
+            /* 幅の制限を緩和 */
+            width: 95%;      /* スマホでは画面の95%を使う */
+            max-width: 900px; /* タブレット等でも最大900pxまで広げる(元は500px) */
+            
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+            position: relative;
+        }
+        .close-btn {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            position: absolute;
+            top: 10px;
+            right: 20px;
+        }
+        .close-btn:hover { color: white; }
+        /* ▲▲▲ 追加ここまで ▲▲▲ */
+
+        /* ▼▼▼ 追加: Fluidボタン内のレイアウト調整 ▼▼▼ */
+        .fluid-btn {
+            display: flex;             /* 横並びにする */
+            justify-content: space-between; /* 両端に配置 */
+            align-items: center;       /* 上下中央揃え */
+            /* 既存のpadding等はそのまま継承されます */
+        }
+        .fluid-icon {
+            font-size: 1.2rem;
+            padding: 5px 10px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .fluid-icon:hover {
+            background: var(--accent);
+            color: white;
+            transform: scale(1.1);
+        }
+        .fluid-icon:active {
+            transform: scale(0.9);
+        }
+        /* ▲▲▲ 追加ここまで ▲▲▲ */
+
+        /* --- TAKEOFF Tab Styles --- */
+        :root { 
+            --slush-color: #FF9100; 
+            --icy-color: #00E676;
+            --calc-ng: #FF3D00;
+            --c6: #00E676; --c5: #76FF03; --c4: #FFEA00;
+            --c3: #FFC400; --c2: #FF9100; --c1: #FF3D00; --c0: #D50000;
+        }
+
+        /* Result Header (Takeoff Specific) */
+        .result-header {
+            background: #222; border: 1px solid #444; border-radius: 8px; padding: 12px;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+            margin-bottom: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+        }
+        .res-row { grid-column: span 2; display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 1px solid #444; padding-bottom: 5px; margin-bottom: 5px; }
+        .res-group { display: flex; flex-direction: column; }
+        .res-label { font-size: 0.65rem; color: #AAA; font-weight: bold; }
+        .perf-val { font-size: 1.8rem; font-weight: 800; line-height: 1; color: #FFF; }
+        .limit-val { font-size: 1.6rem; font-weight: 800; line-height: 1; }
+        .sub-val { font-size: 0.85rem; color: #BBB; margin-top: 2px;}
+        .alert-box {
+            grid-column: span 2; background: #400; color: #FF5555; font-weight: bold; 
+            padding: 10px; font-size: 0.85rem; border: 2px solid #F00; 
+            border-radius: 4px; display: none; line-height: 1.4; margin-top: 5px;
+        }
+
+        /* Settings Bar */
+        .setting-bar {
+            display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px;
+            background: #252525; padding: 8px 12px; border-radius: 6px; border: 1px solid #444;
+        }
+        .rwy-input { width: 50px; text-align: center; font-size: 1rem; background: #000; color: #FFF; border: 1px solid #555; padding: 6px; border-radius: 4px; font-weight: bold;}
+        
+        .toggle-container { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+        .toggle-switch { position: relative; width: 40px; height: 20px; background: #444; border-radius: 20px; transition: 0.3s; }
+        .toggle-switch::after { content: ''; position: absolute; top: 2px; left: 2px; width: 16px; height: 16px; background: #FFF; border-radius: 50%; transition: 0.3s; }
+        input[type="checkbox"] { display: none; }
+        input[type="checkbox"]:checked + .toggle-switch { background: var(--slush-color); }
+        input[type="checkbox"]:checked + .toggle-switch::after { transform: translateX(20px); }
+        .toggle-label { font-size: 0.8rem; font-weight: bold; color: #AAA; }
+        input[type="checkbox"]:checked ~ .toggle-label { color: #FFF; }
+
+        /* RWY Graphic */
+        .rwy-graphic {
+            background-color: #2b2b2b; border-radius: 8px; border: 2px solid #555;
+            position: relative; display: flex; flex-direction: column; 
+            padding: 40px 10px 60px 50px; overflow: hidden; box-shadow: inset 0 0 30px #000;
+            margin-bottom: 15px;
+        }
+        .centerline {
+            position: absolute; top: 0; bottom: 0; left: 55%; width: 6px; transform: translateX(-50%);
+            background: repeating-linear-gradient(to bottom, #E0E0E0 0, #E0E0E0 40px, transparent 40px, transparent 90px);
+            opacity: 0.5; pointer-events: none;
+        }
+        .threshold {
+            position: absolute; bottom: 15px; left: 15%; right: 5%; height: 30px;
+            background: repeating-linear-gradient(to right, #E0E0E0 0, #E0E0E0 10px, transparent 10px, transparent 20px);
+            pointer-events: none;
+        }
+        .rwy-no-display {
+            position: absolute; bottom: 50px; left: 55%; transform: translateX(-50%) scaleY(1.5);
+            font-family: "Arial Black", sans-serif; font-size: 4rem; color: rgba(255,255,255,0.8);
+            z-index: 0; text-shadow: 0 2px 10px #000; pointer-events: none;
+        }
+        .takeoff-arrow {
+            position: absolute; left: 10px; top: 20px; bottom: 20px; width: 30px;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 5; pointer-events: none;
+        }
+        .arrow-line { flex: 1; width: 2px; background: repeating-linear-gradient(to bottom, #FFFF00 0, #FFFF00 10px, transparent 10px, transparent 20px); }
+        .arrow-head { color: #FFFF00; font-size: 1.5rem; margin-bottom: -5px; text-shadow: 0 2px 5px #000; }
+        .arrow-text { writing-mode: vertical-rl; text-orientation: mixed; color: #FFFF00; font-weight: bold; font-size: 0.9rem; letter-spacing: 2px; text-shadow: 0 2px 5px #000; margin: 10px 0; opacity: 0.9; }
+
+        /* Section Cards */
+        .segment-wrapper { display: flex; flex-direction: column; gap: 15px; position: relative; z-index: 10; }
+        .section-card {
+            background: rgba(30, 30, 30, 0.95); border-left: 10px solid #555; border-radius: 4px; 
+            padding: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.5); transition: all 0.3s;
+        }
+        .section-card.disabled { opacity: 0.4; filter: grayscale(100%); pointer-events: none; border-left-color: #555 !important; }
+        .section-card.excluded { opacity: 0.6; border: 2px dashed #FF3D00; }
+        .section-card.excluded::after {
+            content: "LIMIT OVER (EXCLUDED)"; position: absolute; top: 5px; right: 5px;
+            color: #FF3D00; font-weight: bold; font-size: 0.7rem; background: #000; padding: 2px 5px;
+        }
+        
+        .code-disp { font-size: 0.8rem; color: #FF9100; font-weight: bold; margin-top: 4px; text-align: right; display: block; min-height: 1.2em; white-space: nowrap; }
+        
+        /* Zone Colors */
+        .cc-6 { border-left-color: var(--c6); background: rgba(0, 50, 0, 0.3); }
+        .cc-5 { border-left-color: var(--c5); }
+        .cc-4 { border-left-color: var(--c4); }
+        .cc-3 { border-left-color: var(--c3); background: rgba(60, 40, 0, 0.3); }
+        .cc-2 { border-left-color: var(--c2); }
+        .cc-1 { border-left-color: var(--c1); background: rgba(60, 10, 0, 0.3); }
+        .cc-0 { border-left-color: var(--c0); background: rgba(50, 0, 0, 0.4); }
+
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .zone-name { font-weight: bold; font-size: 0.9rem; color: #FFF; text-shadow: 0 1px 2px #000; }
+        
+        /* Inputs in Cards */
+        .input-row { display: grid; grid-template-columns: 2fr 1fr 1.2fr; gap: 8px; }
+        .input-group { display: flex; flex-direction: column; }
+        .label { font-size: 0.6rem; color: #CCC; margin-bottom: 3px; font-weight: bold; }
+        
+        select, .input-group input {
+            background: #FFF; color: #000; border: 1px solid #999; border-radius: 4px;
+            padding: 8px; font-size: 0.95rem; font-weight: bold; width: 100%; box-sizing: border-box; appearance: none;
+        }
+        select.rwycc-select { text-align: center; color: #FFF; background: #333; border: 1px solid #555; font-size: 1.1rem; }
+        .rwycc-select.cc-6 { background: var(--c6); color: #000; }
+        .rwycc-select.cc-5 { background: var(--c5); color: #000; }
+        .rwycc-select.cc-4 { background: var(--c4); color: #000; }
+        .rwycc-select.cc-3 { background: var(--c3); color: #000; }
+        .rwycc-select.cc-2 { background: var(--c2); color: #000; }
+        .rwycc-select.cc-1 { background: var(--c1); color: #FFF; }
+        .rwycc-select.cc-0 { background: var(--c0); color: #FFF; }
+
+        /* Reference Modal */
+        .ref-btn {
+            font-family: sans-serif; font-weight: 900; font-size: 0.85rem; letter-spacing: 1px;
+            border-radius: 20px; padding: 4px 14px;
+            color: #00E5FF; background: rgba(0, 229, 255, 0.1); border: 2px solid #00E5FF;
+            cursor: pointer; transition: all 0.2s; margin-left: auto;
+        }
+        .ref-btn:hover { background: #00E5FF; color: #000; transform: scale(1.05); }
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.85); z-index: 2000; display: none;
+            justify-content: center; align-items: center; backdrop-filter: blur(3px);
+        }
+        .ref-table { width: 100%; border-collapse: collapse; font-size: 0.9rem; margin-bottom: 10px; color:#FFF; }
+        .ref-table th, .ref-table td { border: 1px solid #444; padding: 6px; text-align: center; }
+        .ref-table th { background: #333; color: #AAA; }
+
+    </style>
+
+</head>
+
+<body>
+<div class="container">
+    <h2>Winter Ops Dashboard V21</h2>
+    
+    <div id="dbStatus" style="text-align:center; font-size:0.85rem; margin-bottom:15px; color:#888; border:1px solid #333; padding:8px; border-radius:6px; background:#1a1a1a;">
+        🔄 Initializing Database...
+    </div>
+
+    <div class="api-section">
+        <input type="text" id="icaoInput" class="api-input" placeholder="ICAO (e.g. RJNK)" value="RJNK" maxlength="4">
+        <button class="api-btn" onclick="fetchMetar()">📡 Fetch Realtime METAR</button>
+    </div>
+
+    <div id="apiStatus" class="api-status">System: Ready (Source: AviationWeather.gov)</div>
+
+    <div class="tabs">
+        <button id="btn-hot" class="tab-btn active" onclick="switchTab('hot')">1. HOT</button>
+        <button id="btn-takeoff" class="tab-btn" onclick="switchTab('takeoff')">2. TAKEOFF</button>
+        <button id="btn-landing" class="tab-btn" onclick="switchTab('landing')">3. LANDING</button>
+    </div>
+
+    <div id="tab-hot" class="tab-content active">
+        
+        <label>Fluid Selection</label>
+
+        <div class="fluid-selector">
+            <input type="radio" name="fluidOption" id="fluid1" value="TYPE4_ABCS_PLUS" onchange="calcHOT()">
+            <label class="fluid-btn" for="fluid1">
+                <span>ABC-S PLUS (Type IV)</span>
+                <span class="fluid-icon" onclick="openFluidModal('table_abcs.png', event)">📊</span>
+            </label>
+
+            <input type="radio" name="fluidOption" id="fluid2" value="TYPE4_MP4_LAUNCH" onchange="calcHOT()">
+            <label class="fluid-btn" for="fluid2">
+                <span>SAFEWING MP IV (Type IV)</span>
+                <span class="fluid-icon" onclick="openFluidModal('table_safewing.png', event)">📊</span>
+            </label>
+
+            <input type="radio" name="fluidOption" id="fluid3" value="TYPE4_POLAR_GUARD" checked onchange="calcHOT()">
+            <label class="fluid-btn" for="fluid3">
+                <span>POLAR GUARD XTEND (Type IV)</span>
+                <span class="fluid-icon" onclick="openFluidModal('table_polar.png', event)">📊</span>
+            </label>
+            
+            <input type="radio" name="fluidOption" id="fluid4" value="TYPE4_PG_ICE_PELLETS" disabled>
+        </div>
+
+        <label>METAR Input</label>
+        <textarea id="metarInput" placeholder="Enter METAR or Fetch via API"></textarea>
+        
+        <label>Time of Day</label>
+        <div class="time-selector">
+            <input type="radio" name="timeOption" id="timeDay" value="day" onchange="calcHOT()">
+            <label class="time-btn" for="timeDay">☀️ Day</label>
+
+            <input type="radio" name="timeOption" id="timeNight" value="night" checked onchange="calcHOT()">
+            <label class="time-btn" for="timeNight">🌙 Night</label>
+        </div>
+
+        <button onclick="calcHOT()">Calculate HOT</button>
+        
+        <div id="hotResult" class="hot-display">
+            <div style="font-size:0.85rem; color:var(--accent); font-weight:600;">
+                HOLD OVER TIME <span id="allowanceBadge" class="allowance-badge" style="display:none;">ALLOWANCE</span>
+            </div>
+            
+            <div class="hot-time" id="resHOT">--:--</div>
+            <div id="hotAlert" style="font-size:0.95rem; color:#F90; margin-bottom:10px; font-weight:bold;"></div>
+
+            <div class="calc-basis-grid">
+                <div class="basis-item">
+                    <span class="basis-label">OAT</span>
+                    <span class="basis-val" id="dispOat">--</span>
+                </div>
+                <div class="basis-item">
+                    <span class="basis-label">VIS</span>
+                    <span class="basis-val" id="dispVis">--</span>
+                </div>
+                
+                <div class="basis-item" onclick="openChartModal()" style="cursor:pointer; background:rgba(255,255,255,0.05); border-radius:4px;">
+                    <span class="basis-label" style="display:flex; align-items:center; gap:4px; color:#00A3AF;">
+                        INTENSITY 🔍
+                    </span>
+                    <span class="basis-val" id="dispIntensity" style="text-decoration:underline; text-decoration-style:dotted; text-underline-offset:3px;">--</span>
+                </div>
+
+                <div class="basis-item full-width">
+                    <span class="basis-label">PRECIPITATION</span>
+                    <span class="basis-val" id="dispPrecip" style="font-size:0.9rem;">--</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="limit-section">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:15px;">
+                <div>
+                    <label style="margin-top:0;">Start Time (UTC)</label>
+                    <input type="text" id="startTimeInput" placeholder="HHmm" maxlength="4" style="text-align:center; font-family:monospace; font-size:1.3rem;">
+                </div>
+                <div>
+                    <label style="margin-top:0;">Manual HOT (min)</label>
+                    <input type="number" id="manualHotInput" placeholder="Auto" style="text-align:center; font-family:monospace; font-size:1.3rem;">
+                </div>
+            </div>
+
+            <div class="limit-display-box">
+                <label style="margin-top:0; color:#888;">Takeoff Limit (UTC)</label>
+                <div id="limitDisplay" style="font-size:2.8rem; font-weight:bold; color:#FFF; letter-spacing:-1px;">--:--</div>
+            </div>
+        </div>
+    </div>
+
+    <div id="tab-takeoff" class="tab-content">
+        
+        <div class="result-header">
+            <div class="res-row">
+                <div class="res-group">
+                    <span class="res-label">APPLY PERFORMANCE</span>
+                    <span class="perf-val" id="res_perf_code">DRY</span>
+                    <span class="sub-val" id="res_sub_info">Limit CC: 6</span>
+                </div>
+            </div>
+            
+            <div class="res-group">
+                <span class="res-label">MAX X-WIND</span>
+                <div><span class="limit-val" id="res_limit">33</span> <span style="font-size:1rem;">kt</span></div>
+            </div>
+            <div class="res-group" style="text-align:right;">
+                <span class="res-label">AVG SLUSH DEPTH</span>
+                <div><span class="limit-val" id="res_act_depth">0.0</span></div>
+                <div id="res_calc_info" style="font-size:0.65rem; color:#AAA; margin-top:2px;"></div>
+            </div>
+            
+            <div id="alert_box" class="alert-box"></div>
+        </div>
+
+        <div class="setting-bar">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <span class="res-label">DEP RWY:</span>
+                <input type="text" id="rwy_id" class="rwy-input" value="34" maxlength="3" oninput="updateRwyOrder()">
+                <button class="ref-btn" onclick="toggleRefModal(true)">REF</button>
+            </div>
+            
+            <label class="toggle-container">
+                <input type="checkbox" id="chk_intersection" onchange="calcLogic()">
+                <div class="toggle-switch"></div>
+                <span class="toggle-label">INTERSECTION</span>
+            </label>
+        </div>
+
+        <div class="rwy-graphic">
+            <div class="centerline"></div>
+            <div class="threshold"></div>
+            <div class="rwy-no-display" id="vis_rwy_id">34</div>
+            <div class="takeoff-arrow">
+                <div class="arrow-head">▲</div>
+                <div class="arrow-text">TAKEOFF</div>
+                <div class="arrow-line"></div>
+            </div>
+
+            <div class="segment-wrapper" id="seg_container">
+                <div class="section-card cc-6" id="card_c">
+                    <div class="card-header"><span class="zone-name" id="label_c">ZONE C</span></div>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <span class="label">CONDITION</span>
+                            <select id="cond_c" onchange="autoSelectCC('c')">
+                                <option value="DRY">DRY</option><option value="WET">WET</option>
+                                <option value="DRY_SNOW" selected>DRY SNOW</option><option value="WET_SNOW">WET SNOW</option>
+                                <option value="SLUSH">SLUSH</option><option value="COMPACTED">COMPACTED</option>
+                                <option value="ICE">ICE</option><option value="WET_ICE">WET ICE</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <span class="label">DEPTH</span>
+                            <input type="number" id="depth_c" placeholder="NR" value="5" oninput="autoSelectCC('c')">
+                            <span class="code-disp" id="disp_c"></span>
+                        </div>
+                        <div class="input-group">
+                            <span class="label">RWYCC</span>
+                            <select id="cc_c" class="rwycc-select cc-6" onchange="manualCC('c')">
+                                <option value="6">6</option><option value="5">5</option><option value="4">4</option>
+                                <option value="3" selected>3</option><option value="2">2</option><option value="1">1</option><option value="0">0</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-card cc-6" id="card_b">
+                    <div class="card-header"><span class="zone-name" id="label_b">ZONE B (MID)</span></div>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <span class="label">CONDITION</span>
+                            <select id="cond_b" onchange="autoSelectCC('b')">
+                                <option value="DRY">DRY</option><option value="WET">WET</option>
+                                <option value="DRY_SNOW" selected>DRY SNOW</option><option value="WET_SNOW">WET SNOW</option>
+                                <option value="SLUSH">SLUSH</option><option value="COMPACTED">COMPACTED</option>
+                                <option value="ICE">ICE</option><option value="WET_ICE">WET ICE</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <span class="label">DEPTH</span>
+                            <input type="number" id="depth_b" placeholder="NR" value="5" oninput="autoSelectCC('b')">
+                            <span class="code-disp" id="disp_b"></span>
+                        </div>
+                        <div class="input-group">
+                            <span class="label">RWYCC</span>
+                            <select id="cc_b" class="rwycc-select cc-6" onchange="manualCC('b')">
+                                <option value="6">6</option><option value="5">5</option><option value="4">4</option>
+                                <option value="3" selected>3</option><option value="2">2</option><option value="1">1</option><option value="0">0</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-card cc-6" id="card_a">
+                    <div class="card-header"><span class="zone-name" id="label_a">ZONE A</span></div>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <span class="label">CONDITION</span>
+                            <select id="cond_a" onchange="autoSelectCC('a')">
+                                <option value="DRY">DRY</option><option value="WET">WET</option>
+                                <option value="DRY_SNOW" selected>DRY SNOW</option><option value="WET_SNOW">WET SNOW</option>
+                                <option value="SLUSH">SLUSH</option><option value="COMPACTED">COMPACTED</option>
+                                <option value="ICE">ICE</option><option value="WET_ICE">WET ICE</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <span class="label">DEPTH</span>
+                            <input type="number" id="depth_a" placeholder="NR" value="14" oninput="autoSelectCC('a')">
+                            <span class="code-disp" id="disp_a"></span>
+                        </div>
+                        <div class="input-group">
+                            <span class="label">RWYCC</span>
+                            <select id="cc_a" class="rwycc-select cc-6" onchange="manualCC('a')">
+                                <option value="6">6</option><option value="5">5</option><option value="4">4</option>
+                                <option value="3" selected>3</option><option value="2">2</option><option value="1">1</option><option value="0">0</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div id="ref_modal" class="modal" onclick="toggleRefModal(false)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <span class="close-btn" onclick="toggleRefModal(false)">&times;</span>
+            <h3 style="margin-top:0; color:var(--slush-color); border-bottom:1px solid #555; padding-bottom:10px;">LIMITATIONS</h3>
+            
+            <h4 style="margin:10px 0 5px;">❄️ DEPTH LIMITS</h4>
+            <table class="ref-table" style="width:100%; border-collapse:collapse; color:#FFF; text-align:center;">
+                <thead><tr><th style="border:1px solid #444; padding:5px;">CONDITION</th><th style="border:1px solid #444; padding:5px;">LIMIT</th></tr></thead>
+                <tbody>
+                    <tr><td style="border:1px solid #444; padding:5px;">DRY SNOW</td><td style="color:var(--slush-color); border:1px solid #444;">61 mm</td></tr>
+                    <tr><td style="border:1px solid #444; padding:5px;">WET SNOW</td><td style="color:var(--slush-color); border:1px solid #444;">41 mm</td></tr>
+                    <tr><td style="border:1px solid #444; padding:5px;">SLUSH</td><td style="color:var(--slush-color); border:1px solid #444;">13 mm</td></tr>
+                </tbody>
+            </table>
+
+            <h4 style="margin:15px 0 5px;">✈️ X-WIND LIMITS</h4>
+            <table class="ref-table" style="width:100%; border-collapse:collapse; color:#FFF; text-align:center;">
+                <thead><tr><th style="border:1px solid #444; padding:5px;">RWYCC</th><th style="border:1px solid #444; padding:5px;">MAX X-WIND</th></tr></thead>
+                <tbody>
+                    <tr><td class="cc-6" style="color:#000;">6</td><td style="border:1px solid #444;">33 kt</td></tr>
+                    <tr><td class="cc-5" style="color:#000;">5</td><td style="border:1px solid #444;">25 kt</td></tr>
+                    <tr><td class="cc-4" style="color:#000;">4</td><td style="border:1px solid #444;">27 kt</td></tr>
+                    <tr><td class="cc-3" style="color:#000;">3</td><td style="border:1px solid #444;">20 kt</td></tr>
+                    <tr><td class="cc-2" style="color:#000;">2</td><td style="border:1px solid #444;">15 kt</td></tr>
+                    <tr><td class="cc-1" style="color:#FFF;">1</td><td style="border:1px solid #444;">10 kt</td></tr>
+                    <tr><td class="cc-0" style="color:#FFF;">0</td><td style="border:1px solid #444; color:var(--c1);">0 kt</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="footer">Ref: AOMB Rev 25.7.0 & JAL Winter Ops 2025</div>
+</div>
+
+<div id="chartModal" class="modal" onclick="closeChartModal()">
+        <span class="close-btn">&times;</span>
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h3 style="margin-top:0; color:var(--text);">Snowfall Intensity Conversion Table(2025-2026)</h3>
+            
+            <img src="chart.png" alt="Snow Intensity Chart" style="width:100%; border-radius:8px;">
+            
+            <p style="font-size:0.8rem; color:#888; text-align:center;">Tap outside to close</p>
+        </div>
+    
+</div>
+
+   <div id="fluidModal" class="modal" onclick="closeFluidModal()">
+        <span class="close-btn">&times;</span>
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <h3 style="margin-top:0; color:var(--text);">Fluid Guideline(2025-2026)</h3>
+            <img id="fluidImgTarget" src="" alt="Fluid Table" style="width:100%; border-radius:8px;">
+            <p style="font-size:0.8rem; color:#888; text-align:center;">Tap outside to close</p>
+        </div>
+  </div>
+
+
+<script>
+    let DATABASE = null;
+    // ▼▼▼ 変更: 自動読み込みロジック ▼▼▼
+    window.addEventListener('DOMContentLoaded', async () => {
+        const statusEl = document.getElementById('dbStatus');
+        
+        try {
+            statusEl.innerText = "⏳ Loading hot_database.json...";
+            
+            // 同一階層のJSONファイルをフェッチ
+            const response = await fetch('hot_database_v2.json');
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            DATABASE = await response.json();
+            
+            statusEl.innerHTML = "✅ <b>System Ready</b>: Database Loaded Successfully";
+            statusEl.style.color = "#4CAF50";
+            statusEl.style.borderColor = "#4CAF50";
+            
+        } catch (err) {
+            console.error(err);
+            statusEl.innerHTML = `❌ <b>Database Error</b>: Cannot load hot_database.json.<br><span style="font-size:0.7rem">${err.message}</span>`;
+            statusEl.style.color = "#FF3333";
+            statusEl.style.borderColor = "#FF3333";
+        }
+
+        // Takeoff Tabの初期化
+        updateRwyOrder();
+        ['a','b','c'].forEach(z => manualCC(z));
+    });
+    // ▲▲▲ 変更ここまで ▲▲▲
+
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(d => d.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-' + tabId).classList.add('active');
+        document.getElementById('btn-' + tabId).classList.add('active');
+    }
+
+    // --- Helper Functions ---
+    function getTokens(metarText) {
+        return metarText.split(/\s+/);
+    }
+    function hasToken(tokens, code) {
+        return tokens.some(t => t === code);
+    }
+    
+    function getPrecipIntensityFromToken(metarText, code) {
+        const tokens = metarText.split(/\s+/);
+        for(let token of tokens) {
+            if(token.includes(code)) {
+                let cleanToken = token.trim();
+                if(cleanToken.startsWith("-")) return "Light";
+                if(cleanToken.startsWith("+")) return "Heavy";
+                return "Moderate";
+            }
+        }
+        return "Moderate";
+    }
+
+    function getSnowIntensity(vis, oat, isDay) {
+        if (isDay) {
+            if (oat > -1) { return vis <= 1000 ? "Heavy" : (vis <= 1400 ? "Moderate" : (vis <= 3000 ? "Light" : "Very Light")); }
+            else { return vis <= 600 ? "Heavy" : (vis <= 1400 ? "Moderate" : (vis <= 2600 ? "Light" : "Very Light")); }
+        } else { 
+            if (oat > -1) { return vis <= 1400 ? "Heavy" : (vis <= 2600 ? "Moderate" : (vis <= 3600 ? "Light" : "Very Light")); }
+            else { return vis <= 1000 ? "Heavy" : (vis <= 2600 ? "Moderate" : (vis <= 3600 ? "Light" : "Very Light")); }
+        }
+    }
+
+    function calcHOT() {
+        if(!DATABASE) { alert("Load Database first."); return; }
+        const metar = document.getElementById('metarInput').value.toUpperCase();
+        
+        const resDiv = document.getElementById('hotResult');
+        const resTime = document.getElementById('resHOT');
+        const resAlert = document.getElementById('hotAlert');
+        const badge = document.getElementById('allowanceBadge');
+        
+        resDiv.style.display = 'block';
+        resTime.style.color = "white"; 
+        resAlert.innerText = "";
+        badge.style.display = "none";
+
+        const tokens = getTokens(metar);
+
+        // --- 1. PROHIBITED Wx CHECK (V21 Fixed) ---
+        let prohibitedReason = "";
+        
+        if (metar.includes("GR")) {
+            prohibitedReason = "HAIL (GR)";
+        }
+        else if (metar.includes("GS")) {
+            const gsInt = getPrecipIntensityFromToken(metar, "GS");
+            if (gsInt === "Heavy" && !metar.includes("SNOW PELLETS")) {
+                prohibitedReason = "HEAVY SMALL HAIL (+GS)";
+            }
+        }
+        else if (metar.includes("FZRA")) {
+            const fzraInt = getPrecipIntensityFromToken(metar, "FZRA");
+            const isLightFzra = (fzraInt === "Light");
+            
+            // Check if it's an allowed mixture (Light IP + FZRA)
+            const isAllowedMix = hasToken(tokens, "-PLFZRA") || hasToken(tokens, "-FZRAPL") || hasToken(tokens, "-FZRASNPL") || hasToken(tokens, "-SNPLFZRA");
+            
+            // Note: FZRA is prohibited if Mod/Heavy, UNLESS it's specifically covered in allowance tables.
+            // AOMB only lists "Light FZRA" mixes. So Mod/Heavy FZRA is blocked.
+            if (!isLightFzra && !isAllowedMix) {
+                 prohibitedReason = `FREEZING RAIN (Detected as ${fzraInt} -> Prohibited)`;
+            }
+        }
+        // No block for FZDZ (even Heavy) because "+FZDZPL" is allowed.
+
+        if (prohibitedReason !== "") {
+            resTime.innerText = "NO TAKEOFF";
+            resTime.style.color = "#FF3333";
+            resAlert.innerText = `PROHIBITED: ${prohibitedReason}`;
+            return; 
+        }
+
+        // --- 2. Normal HOT Calculation ---
+        let fluid = document.querySelector('input[name="fluidOption"]:checked').value;
+        const timeOfDay = document.querySelector('input[name="timeOption"]:checked').value;
+        const isDay = (timeOfDay === "day");
+
+        // OAT Parsing
+        let oat = 0;
+        const oatMatch = metar.match(/\b(?:OAT|T)\s?(M?\d{2})/);
+        const oatSlash = metar.match(/\s(M?\d{2})\/(?:M?\d{2})/);
+        if (oatMatch) oat = parseInt(oatMatch[1].replace('M', '-'));
+        else if (oatSlash) oat = parseInt(oatSlash[1].replace('M', '-'));
+
+        // Vis Parsing
+        let vis = 9999;
+        if(metar.includes("CAVOK")) { vis = 9999; } 
+        else {
+            const visKt = metar.match(/(?:KT|VRB\d{2}KT)\s+(?:[\d]{3}V[\d]{3}\s+)?(\d{3,4})\b/);
+            const visZ = metar.match(/Z\s+(\d{3,4})\b/); 
+            if(visKt) vis = parseInt(visKt[1]);
+            else if(visZ) vis = parseInt(visZ[1]);
+        }
+
+        let precip = "Snow / Snow Grains / Snow Pellets";
+        let intensity = "Light";
+        let isHeavy = false;
+        let isSnow = false;
+        let isIcePellets = false;
+
+        if (metar.includes("FZFG")) precip = "Freezing Fog";
+        if (metar.includes("SN") && metar.includes("FZFG")) { precip = "Snow mixed with Freezing Fog"; isSnow = true; }
+        if (metar.includes("FZDZ")) precip = "Freezing Drizzle";
+        if (metar.includes("-FZRA")) precip = "Light Freezing Rain";
+
+        // --- GS/PL Handling (V21: FZDZPL Logic Fix) ---
+        if ((metar.includes("GS") && !metar.includes("SNOW PELLETS")) || metar.includes("PL")) {
+            isIcePellets = true;
+            fluid = "TYPE4_PG_ICE_PELLETS"; 
+            badge.style.display = "inline-block"; 
+
+            // Extract Base Intensity
+            let ipIntensity = "Moderate";
+            if(metar.includes("PL")) ipIntensity = getPrecipIntensityFromToken(metar, "PL");
+            if(metar.includes("GS") && !metar.includes("SNOW PELLETS")) ipIntensity = getPrecipIntensityFromToken(metar, "GS");
+            if(ipIntensity !== "Light") ipIntensity = "Moderate";
+
+            // --- HIERARCHY 1: TRIPLE MIX (PL + SN + FZRA/RA) ---
+            if ((metar.includes("SN") || metar.includes("SG")) && (metar.includes("FZRA") || metar.includes("FZDZ"))) {
+                // Triple mix is generally Light IP + Light FZRA + Light SN
+                // If FZDZ is present, usually mapped to FZRA line for triple mix or handled if explicit.
+                if (ipIntensity === "Light") precip = "Light Ice Pellets (or Small Hail) Mixed with Light Freezing Rain and Light Snow";
+                else precip = "Moderate Ice Pellets (or Small Hail) Mixed with Moderate Snow (PLSN, SNPL)"; 
+            }
+            else if ((metar.includes("SN") || metar.includes("SG")) && metar.includes("RA")) {
+                if (ipIntensity === "Light") precip = "Light Ice Pellets (or Small Hail) Mixed with Light Rain and Light Snow";
+                else precip = "Moderate Ice Pellets (or Small Hail) Mixed with Moderate Snow (PLSN, SNPL)";
+            }
+
+            // --- HIERARCHY 2: DOUBLE MIX (FZDZPL FIX) ---
+            else if (metar.includes("FZRA") || metar.includes("FZDZ") || 
+                     hasToken(tokens, "FZDZPL") || hasToken(tokens, "-FZDZPL") || hasToken(tokens, "+FZDZPL") || hasToken(tokens, "-PLFZDZ") || hasToken(tokens, "PLFZDZ")) {
+                
+                // Specific Check for Light Category Codes from AOMB P.35
+                if (hasToken(tokens, "FZDZPL") || hasToken(tokens, "-FZDZPL") || hasToken(tokens, "+FZDZPL") || hasToken(tokens, "-PLFZDZ")) {
+                     precip = "Light Ice Pellets (or Small Hail) Mixed with Light, Moderate or Heavy Freezing Drizzle";
+                }
+                // Specific Check for Moderate Category Code from AOMB P.36
+                else if (hasToken(tokens, "PLFZDZ")) {
+                     precip = "Moderate Ice Pellets (or Small Hail) Mixed with Light, Moderate or Heavy Freezing Drizzle";
+                }
+                // Check FZRA
+                else if (metar.includes("FZRA")) {
+                     if (ipIntensity === "Light") precip = "Light Ice Pellets (or Small Hail) Mixed with Light Freezing Rain (-FZRA)";
+                     // Mod FZRA + Mod IP not allowed generally
+                }
+                else { 
+                     // Fallback for FZDZ not matching tokens above
+                     if (ipIntensity === "Light") precip = "Light Ice Pellets (or Small Hail) Mixed with Light, Moderate or Heavy Freezing Drizzle";
+                     else precip = "Moderate Ice Pellets (or Small Hail) Mixed with Light, Moderate or Heavy Freezing Drizzle";
+                }
+            }
+            // Drizzle Mix
+            else if (hasToken(tokens, "DZPL") || hasToken(tokens, "-DZPL") || hasToken(tokens, "+DZPL") || hasToken(tokens, "-PLDZ")) {
+                precip = "Light Ice Pellets (or Small Hail) Mixed with Light, Moderate or Heavy Drizzle";
+            }
+            else if (hasToken(tokens, "PLDZ")) {
+                precip = "Moderate Ice Pellets (or Small Hail) Mixed with Light, Moderate or Heavy Drizzle";
+            }
+            // Snow Mix
+            else if (metar.includes("SN") || metar.includes("SG")) {
+                if (ipIntensity === "Light") precip = "Light Ice Pellets (or Small Hail) Mixed with Light Snow (-PLSN, -SNPL)";
+                else precip = "Moderate Ice Pellets (or Small Hail) Mixed with Moderate Snow (PLSN, SNPL)";
+            }
+            // Rain Mix
+            else if (metar.includes("RA")) {
+                if (ipIntensity === "Light") precip = "Light Ice Pellets (or Small Hail) Mixed with Light Rain (-RA)";
+                else precip = "Moderate Ice Pellets (or Small Hail) Mixed with Moderate Rain";
+            }
+            
+            // --- HIERARCHY 3: PURE ---
+            else {
+                if (ipIntensity === "Light") precip = "Light Ice Pellets (or Small Hail) (-PL)";
+                else precip = "Moderate Ice Pellets (or Small Hail) (PL)";
+            }
+        }
+
+        if (!isIcePellets) {
+             if (metar.includes("SN") || metar.includes("SG") || (metar.includes("GS") && metar.includes("SNOW PELLETS"))) {
+                isSnow = true;
+                precip = "Snow / Snow Grains / Snow Pellets";
+                intensity = getSnowIntensity(vis, oat, isDay);
+                if(intensity === "Heavy") isHeavy = true;
+            }
+            if(metar.includes("+SN")) { isHeavy = true; intensity = "Heavy"; }
+        }
+
+       // ▼▼▼ 追加: 判定根拠の表示更新 ▼▼▼
+        document.getElementById('dispOat').innerText = `${oat}°C`;
+        document.getElementById('dispVis').innerText = (vis === 9999) ? "CAVOK/10km+" : `${vis}m`;
+        
+        // Intensityの色分け
+        const dispInt = document.getElementById('dispIntensity');
+        dispInt.innerText = intensity;
+        if(intensity === "Heavy") dispInt.style.color = "#FF3333";
+        else if(intensity === "Light") dispInt.style.color = "#00FF00";
+        else dispInt.style.color = "#E0E0E0"; // Moderate or others
+
+        // Precipの表示
+        document.getElementById('dispPrecip').innerText = precip;
+        // ▲▲▲ 追加ここまで ▲▲▲
+
+        if(isHeavy && isSnow) { 
+            resTime.innerText = "HEAVY SNOW"; 
+            resAlert.innerText = "NO GUIDE / WING CHECK REQUIRED"; 
+            return; 
+        }
+
+        const table = DATABASE[fluid];
+        if(!table) {
+            resTime.innerText = "No Data";
+            resAlert.innerText = "Table Not Loaded.";
+            return;
+        }
+
+        const row = table.find(r => (oat >= r.min && oat < r.max) && (r.precip === precip));
+        
+        if(row) {
+            let t = "Check Man";
+            if(isIcePellets) {
+                t = row.time + " min";
+            } else {
+                if (intensity === "Very Light") t = row.times.vl || row.times.l; 
+                else if (intensity === "Light") t = row.times.l;
+                else if (intensity === "Moderate") t = row.times.m;
+            }
+            resTime.innerText = t;
+            if(t.includes("Not Authorized") || t.includes("NO DISPATCH")) {
+                resTime.style.color = "#FF3333";
+                resTime.innerText = "NO DISPATCH";
+            }
+        } else { 
+            resTime.innerText = "No Data"; 
+            resAlert.innerText = "Condition not found in table.";
+        }
+
+        // ▼▼▼ 追加: LIMIT計算をキック ▼▼▼
+        updateLimitTime();
+
+    }
+
+    // ▼▼▼ 追加: METAR取得関数 (NOAA API) ▼▼▼
+   async function fetchMetar() {
+        const icaoInput = document.getElementById('icaoInput');
+        const icao = icaoInput.value.trim().toUpperCase();
+        const statusEl = document.getElementById('apiStatus');
+        
+        if(icao.length < 3) { 
+            alert("正しいICAOコード(3-4文字)を入力してください"); 
+            return; 
+        }
+        
+        // ステータス表示のリセット
+        statusEl.innerText = `Connecting to NOAA for ${icao}...`;
+        statusEl.style.color = "#00A3AF"; 
+        
+        // ▼▼▼ 修正: シンプルなURL構成に戻す（余計なパラメータを削除） ▼▼▼
+        // AviationWeather.gov の新しいAPIエンドポイント
+        const targetUrl = `https://aviationweather.gov/api/data/metar?ids=${icao}&format=json`;
+        
+        // プロキシを経由させる (corsproxy.io を使用)
+        // encodeURIComponentを使ってURLを正しくエンコードする
+        const url = `https://corsproxy.io/?` + encodeURIComponent(targetUrl);
+
+        console.log("Fetching URL:", url); // デバッグ用: コンソールにURLを表示
+
+        try {
+            const response = await fetch(url);
+            
+            // 400エラーなどが返ってきた場合の処理
+            if (!response.ok) {
+                throw new Error(`Server returned status: ${response.status}`);
+            }
+            
+            const text = await response.text();
+            if (!text) {
+                throw new Error("Empty response received");
+            }
+
+            // JSONパースを試みる
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                console.error("JSON Parse Error. Response text:", text);
+                throw new Error("Invalid JSON format received");
+            }
+            
+            // データの存在確認
+            if (data && data.length > 0) {
+                const rawMetar = data[0].rawOb;
+                const obsTime = data[0].observeTime || "Unknown Time";
+
+                document.getElementById('metarInput').value = rawMetar;
+                
+                statusEl.innerText = `✅ Success: Updated at ${new Date().toLocaleTimeString()} (Obs: ${obsTime})`;
+                statusEl.style.color = "#4CAF50"; 
+
+                calcHOT(); // 計算を実行
+            } else {
+                statusEl.innerText = `⚠️ Data not found for ${icao}. Check code.`;
+                statusEl.style.color = "#F90"; 
+            }
+        } catch (error) {
+            console.error("Fetch Error Detail:", error);
+            statusEl.innerText = `❌ Error: ${error.message}`;
+            statusEl.style.color = "#FF3333"; 
+        }
+    }
+
+    function calcSnowtam() {
+        if(!DATABASE || !DATABASE["RCAM_DATA"]) { alert("Database missing RCAM_DATA."); return; }
+        const raw = document.getElementById('snowtamInput').value.trim();
+        const resDiv = document.getElementById('snowtamResult');
+        const rcamDB = DATABASE["RCAM_DATA"];
+        const perfDB = DATABASE["PERFORMANCE_DATA"];
+        const regex = /(\d{2}[LRC]?)\s+(\d)\/(\d)\/(\d)/;
+        const match = raw.match(regex);
+        if(match) {
+            resDiv.style.display = 'block';
+            document.getElementById('rwyId').innerText = match[1];
+            const ccs = [match[2], match[3], match[4]];
+            let minCC = 6;
+            ccs.forEach((cc, idx) => {
+                const i = idx + 1;
+                document.getElementById('cc'+i).innerText = cc;
+                const data = rcamDB[cc];
+                document.getElementById('ba'+i).innerText = data ? data.ba : "?";
+                const val = parseInt(cc);
+                if(val < minCC) minCC = val;
+                const color = val <= 2 ? '#FF9999' : (val <= 4 ? '#FFCC00' : '#00FF00');
+                document.getElementById('cc'+i).style.color = color;
+                document.getElementById('ba'+i).style.color = color;
+            });
+            if(perfDB) {
+                const perf = perfDB["RWYCC_" + minCC];
+                if(perf) document.getElementById('maxXwind').innerText = perf.max_xwind + " kt";
+            }
+        } else { alert("Format: RWY RWYCC (e.g. 01L 5/5/5)"); }
+    }
+
+    // ▼▼▼ 追加: LIMIT時刻計算ロジック ▼▼▼
+    
+    // 入力が変わったら即座に再計算
+    document.getElementById('startTimeInput').addEventListener('input', updateLimitTime);
+    document.getElementById('manualHotInput').addEventListener('input', updateLimitTime);
+
+    function updateLimitTime() {
+        const startStr = document.getElementById('startTimeInput').value.trim();
+        const manualHotStr = document.getElementById('manualHotInput').value.trim();
+        const autoHotText = document.getElementById('resHOT').innerText;
+        const limitDisplay = document.getElementById('limitDisplay');
+    
+
+        limitDisplay.innerText = "--:--";
+        limitDisplay.style.color = "#FFF";
+    
+
+        // 1. HOTの決定 (Manual優先)
+        let hotMin = 0;
+        if (manualHotStr !== "") {
+            hotMin = parseInt(manualHotStr);
+        } else {
+            // Auto HOTから数値を取り出す ("20 min" -> 20)
+            const matchColon = autoHotText.match(/(\d{1,2}):(\d{2})/);
+            
+            if (matchColon) {
+                // 時間(h) * 60 + 分(m) に変換
+                const hours = parseInt(matchColon[1]);
+                const minutes = parseInt(matchColon[2]);
+                hotMin = hours * 60 + minutes;
+            } else {
+                // パターンB: 通常の "110 min" 形式
+                const matchNormal = autoHotText.match(/(\d+)/);
+                if (matchNormal) {
+                    hotMin = parseInt(matchNormal[1]);
+                } else {
+                    return; // 数値なし
+                }
+            }
+        }
+
+        // 2. 開始時刻のパース (HHmm or HH:mm)
+        if (!startStr.match(/^\d{4}$/) && !startStr.match(/^\d{2}:\d{2}$/)) return;
+        
+        let hh = parseInt(startStr.replace(":", "").substring(0, 2));
+        let mm = parseInt(startStr.replace(":", "").substring(2, 4));
+
+        if (hh > 23 || mm > 59) return;
+
+        // 3. 加算計算
+        let totalMin = hh * 60 + mm + hotMin;
+        
+        // 日付またぎ処理 (24時間 = 1440分)
+        let limitTotalMin = totalMin % 1440; 
+        
+        let limitHH = Math.floor(limitTotalMin / 60);
+        let limitMM = limitTotalMin % 60;
+
+        // ゼロ埋め
+        const pad = (n) => n.toString().padStart(2, '0');
+        
+        // 4. 結果表示
+        limitDisplay.innerText = `${pad(limitHH)}:${pad(limitMM)}`;
+        
+        // 補足: 現在時刻との差分などを出したい場合はここで計算可能
+        // limitDiff.innerText = `(+${hotMin} min)`;
+        
+        // 視覚効果: HOTが短すぎる(10分未満)などの場合に色を変えるなどのロジックも追加可能
+        if (hotMin > 0) {
+            limitDisplay.style.color = "#00FF00"; // 計算できたら緑にする等の演出
+        }
+    }
+    // ▲▲▲ 追加ここまで ▲▲▲
+
+    // ▼▼▼ 追加: モーダル開閉ロジック ▼▼▼
+    function openChartModal() {
+        document.getElementById('chartModal').style.display = "block";
+    }
+
+    function closeChartModal() {
+        document.getElementById('chartModal').style.display = "none";
+    }
+    // ▲▲▲ 追加ここまで ▲▲▲
+
+    function openFluidModal(imgName, event) {
+        // 親のlabel(ラジオボタン選択)へのイベント伝播を止める
+        if(event) {
+            event.preventDefault(); 
+            event.stopPropagation();
+        }
+        
+        const modal = document.getElementById('fluidModal');
+        const img = document.getElementById('fluidImgTarget');
+        
+        // 画像を差し替え
+        img.src = imgName;
+        
+        // 表示
+        modal.style.display = "block";
+    }
+
+    function closeFluidModal() {
+        document.getElementById('fluidModal').style.display = "none";
+    }
+
+    // 判定用関数: 条件と深さからコードと値を計算
+    function getSectionInfo(cond, depth) {
+        let res = { code: "(ICY)", val: 0.0, isLimit: false };
+        const d = parseFloat(depth) || 0;
+
+        if (cond === 'DRY_SNOW') {
+            if (d <= 13)      { res.code = "(ICY)";       res.val = 0.0; }
+            else if (d <= 23) { res.code = "SLUSH-0.2";   res.val = 0.2; }
+            else if (d <= 36) { res.code = "SLUSH-0.3";   res.val = 0.3; }
+            else if (d <= 48) { res.code = "SLUSH-0.4";   res.val = 0.4; }
+            else if (d <= 61) { res.code = "SLUSH-0.5";   res.val = 0.5; }
+            else              { res.code = "LIMIT OVER";  res.val = 999; res.isLimit = true; }
+        } 
+        else if (cond === 'WET_SNOW') {
+            if (d <= 8)       { res.code = "(ICY)";       res.val = 0.0; }
+            else if (d <= 18) { res.code = "SLUSH-0.2";   res.val = 0.2; }
+            else if (d <= 25) { res.code = "SLUSH-0.3";   res.val = 0.3; }
+            else if (d <= 33) { res.code = "SLUSH-0.4";   res.val = 0.4; }
+            else if (d <= 41) { res.code = "SLUSH-0.5";   res.val = 0.5; }
+            else              { res.code = "LIMIT OVER";  res.val = 999; res.isLimit = true; }
+        } 
+        else if (cond === 'SLUSH') {
+            if (d <= 3)       { res.code = "(ICY)";       res.val = 0.0; }
+            else if (d <= 5)  { res.code = "SLUSH-0.2";   res.val = 0.2; }
+            else if (d <= 8)  { res.code = "SLUSH-0.3";   res.val = 0.3; }
+            else if (d <= 10) { res.code = "SLUSH-0.4";   res.val = 0.4; }
+            else if (d <= 13) { res.code = "SLUSH-0.5";   res.val = 0.5; }
+            else              { res.code = "LIMIT OVER";  res.val = 999; res.isLimit = true; }
+        }
+        else {
+            res.code = "(N/A)"; res.val = 0.0; 
+        }
+        return res;
+    }
+
+    // 滑走路方向によるZone順序の入替
+    function updateRwyOrder() {
+        const val = document.getElementById('rwy_id').value;
+        const num = parseInt(val) || 0;
+        document.getElementById('vis_rwy_id').innerText = val.toUpperCase() || "RWY";
+        
+        const cont = document.getElementById('seg_container');
+        const cA = document.getElementById('card_a');
+        const cB = document.getElementById('card_b');
+        const cC = document.getElementById('card_c');
+
+        if (num <= 18) {
+            cont.appendChild(cC); cont.appendChild(cB); cont.appendChild(cA);
+            document.getElementById('label_a').innerText = "ZONE A (START)";
+            document.getElementById('label_c').innerText = "ZONE C (END)";
+        } else {
+            cont.appendChild(cA); cont.appendChild(cB); cont.appendChild(cC);
+            document.getElementById('label_a').innerText = "ZONE A (END)";
+            document.getElementById('label_c').innerText = "ZONE C (START)";
+        }
+        calcLogic();
+    }
+
+    // ConditionやDepth入力時の自動RWYCC選択
+    function autoSelectCC(zone) {
+        const cond = document.getElementById('cond_' + zone).value;
+        const depth = parseFloat(document.getElementById('depth_' + zone).value) || 0;
+        let cc = 6;
+        switch(cond) {
+            case "DRY": cc = 6; break;
+            case "WET": cc = 5; break;
+            case "DRY_SNOW": cc = (depth > 3) ? 3 : 5; break;
+            case "WET_SNOW": cc = (depth > 3) ? 3 : 5; break;
+            case "SLUSH": cc = (depth > 3) ? 2 : 5; break;
+            case "COMPACTED": cc = 3; break;
+            case "ICE": cc = 1; break;
+            case "WET_ICE": cc = 0; break;
+        }
+        document.getElementById('cc_' + zone).value = cc;
+        updateVisuals(zone);
+    }
+
+    function manualCC(zone) { updateVisuals(zone); }
+
+    function updateVisuals(zone) {
+        const cc = document.getElementById('cc_' + zone).value;
+        const card = document.getElementById('card_' + zone);
+        const sel = document.getElementById('cc_' + zone);
+        
+        // 色クラスのリセットと適用
+        sel.className = `rwycc-select cc-${cc}`;
+        
+        // disabled/excludedの状態を維持しつつ色クラス適用
+        let baseClass = `section-card cc-${cc}`;
+        if(card.classList.contains('disabled')) baseClass += ' disabled';
+        if(card.classList.contains('excluded')) baseClass += ' excluded';
+        
+        card.className = baseClass;
+        calcLogic();
+    }
+
+    // メイン計算ロジック
+    function calcLogic() {
+        const zones = ['a', 'b', 'c'];
+        const data = {};
+        const rwyNum = parseInt(document.getElementById('rwy_id').value) || 0;
+        const isIntersection = document.getElementById('chk_intersection').checked;
+        
+        let startZone = (rwyNum <= 18) ? 'a' : 'c';
+        let midZone = 'b';
+        let endZone = (rwyNum <= 18) ? 'c' : 'a';
+        
+        zones.forEach(z => {
+            const card = document.getElementById('card_' + z);
+            card.classList.remove('disabled', 'excluded'); // リセット
+            
+            const cond = document.getElementById('cond_' + z).value;
+            const depth = parseFloat(document.getElementById('depth_' + z).value) || 0;
+            const cc = parseInt(document.getElementById('cc_' + z).value);
+            const info = getSectionInfo(cond, depth);
+            
+            document.getElementById('disp_' + z).innerText = info.code;
+            data[z] = { cond, depth, cc, info };
+        });
+
+        // Intersection処理
+        if (isIntersection) document.getElementById('card_' + startZone).classList.add('disabled');
+
+        // LIMIT判定
+        let isStartLimit = (!isIntersection && data[startZone].info.isLimit);
+        let isMidLimit = data[midZone].info.isLimit;
+        
+        // End Zone救済ロジック
+        let endExcluded = false;
+        if (data[endZone].info.isLimit || data[endZone].cc === 0) {
+            endExcluded = true;
+            document.getElementById('card_' + endZone).classList.add('excluded');
+        }
+
+        let validZones = zones.filter(z => {
+            if (isIntersection && z === startZone) return false;
+            if (endExcluded && z === endZone) return false;
+            return true;
+        });
+
+        let perfCode = "DRY";
+        let perfColor = "#FFF";
+        let alertMsg = "";
+        let avgDisp = "0.0";
+        let limitCC = 6;
+
+        if(validZones.length > 0) limitCC = Math.min(...validZones.map(z => data[z].cc));
+
+        if (isStartLimit) {
+            perfCode = "NO GO"; perfColor = "var(--c1)"; alertMsg = "⛔ START ZONE LIMIT EXCEEDED";
+        } else if (isMidLimit) {
+            perfCode = "NO GO"; perfColor = "var(--c1)"; alertMsg = "⛔ MID ZONE LIMIT EXCEEDED";
+        } else if (limitCC === 0) {
+            perfCode = "NO GO"; perfColor = "var(--c1)"; alertMsg = "⛔ TAKEOFF PROHIBITED (RWYCC 0)";
+        } else {
+            let hasIcy = validZones.some(z => data[z].info.val === 0.0);
+            let hasSlush = validZones.some(z => data[z].info.val > 0.0);
+            const validConds = ['DRY_SNOW', 'WET_SNOW', 'SLUSH'];
+            let hasInvalidSurface = validZones.some(z => !validConds.includes(data[z].cond) && data[z].cond !== 'DRY' && data[z].cond !== 'WET');
+
+            // 混在チェック等は、DRY/WET以外の雪氷がある場合のみ実施
+            let snowExist = validZones.some(z => validConds.includes(data[z].cond));
+            
+            if (snowExist && hasIcy && hasSlush) {
+                perfCode = "CALC NG"; perfColor = "var(--calc-ng)";
+                alertMsg = "⚠️ 異なる雪質の混在 (Mixed ICY & SLUSH). 最も不利な条件を使用してください";
+                avgDisp = "MIXED";
+            } else if (snowExist) {
+                // 平均計算
+                let valList = validZones.map(z => data[z].info.val.toFixed(1));
+                let totalVal = validZones.reduce((sum, z) => sum + data[z].info.val, 0);
+                let rawAvg = validZones.length ? (totalVal / validZones.length) : 0;
+                let avgVal = Math.round(rawAvg * 10) / 10;
+                avgDisp = avgVal.toFixed(1);
+
+                let formula = `(${valList.join('+')}) ÷ ${validZones.length}`;
+                let process = `${formula} = ${rawAvg.toFixed(2)} → <strong>${avgDisp}</strong>`;
+                let note = `<br><span style="font-size:0.55rem; opacity:0.7;">※ref.AOM RD SPにより四捨五入</span>`;
+                document.getElementById('res_calc_info').innerHTML = process + note;
+
+                if (avgVal === 0) { perfCode = "ICY-" + limitCC; perfColor = "var(--icy-color)"; } 
+                else { perfCode = "SLUSH-" + avgDisp; perfColor = "var(--slush-color)"; }
+            } else {
+                // DRY, WET, ICE等の単純な状態
+                 document.getElementById('res_calc_info').innerHTML = "";
+            }
+        }
+        
+        if (perfCode === "NO GO" || perfCode === "CALC NG") document.getElementById('res_calc_info').innerHTML = "";
+
+        const elPerf = document.getElementById('res_perf_code');
+        elPerf.innerText = perfCode;
+        elPerf.style.color = perfColor;
+        document.getElementById('res_sub_info').innerText = `Limit CC: ${limitCC}`;
+
+        const limits = { 6:33, 5:25, 4:27, 3:20, 2:15, 1:10, 0:0 }; // RWYCC 4 is 27kt (corrected from source)
+        document.getElementById('res_limit').innerText = limits[limitCC] || 0;
+        document.getElementById('res_act_depth').innerText = avgDisp;
+
+        const elAlert = document.getElementById('alert_box');
+        if(alertMsg) { elAlert.style.display = "block"; elAlert.innerText = alertMsg; } 
+        else { elAlert.style.display = "none"; }
+    }
+
+    function toggleRefModal(show) {
+        document.getElementById('ref_modal').style.display = show ? 'block' : 'none';
+    }
+
+</script>
+</body>
+</html>
