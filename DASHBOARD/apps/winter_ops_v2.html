@@ -108,6 +108,31 @@
         .basis-val { font-size: 1.1rem; font-weight: bold; color: #FFF; }
         .limit-section { margin-top: 25px; padding: 20px; background: #252525; border: 1px solid #444; border-radius: 12px; }
         .limit-display-box { margin-top: 20px; text-align: center; border-top: 1px solid #444; padding-top: 15px; }
+
+        /* --- Home Button --- */
+        .home-nav {
+            margin-bottom: 10px;
+        }
+        .btn-home {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+            color: #aaa;
+            font-size: 0.9rem;
+            font-weight: bold;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            transition: all 0.2s ease;
+            border: 1px solid transparent;
+        }
+        .btn-home:hover {
+            background: rgba(255, 255, 255, 0.15);
+            color: #fff;
+            border-color: #555;
+            transform: translateX(-2px); /* 左に少し動く演出 */
+        }
         
         /* Helpers */
         /* ▼▼▼ 修正: ロードセクションを表示(display:block)に戻しデザイン適用 ▼▼▼ */
@@ -351,6 +376,11 @@
 
 <body>
 <div class="container">
+    <div class="home-nav">
+        <a href="../index.html" class="btn-home">
+            <span>🏠</span> HOME
+        </a>
+    </div>
     <h2>Winter Ops Dashboard V21</h2>
     
     <div id="dbStatus" style="text-align:center; font-size:0.85rem; margin-bottom:15px; color:#888; border:1px solid #333; padding:8px; border-radius:6px; background:#1a1a1a;">
