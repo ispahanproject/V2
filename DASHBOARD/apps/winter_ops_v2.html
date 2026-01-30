@@ -941,8 +941,11 @@
 
     }
 
-    // ▼▼▼ 追加: METAR取得関数 (NOAA API) ▼▼▼
-   async function fetchMetar() {
+   // ▼▼▼ 変更: Check WX API版 fetchMetar ▼▼▼
+    async function fetchMetar() {
+        // ★ここにCheck WXのAPIキーを入力してください (例: '5a4b3c...')
+        const API_KEY = "70a1a6628e114359af87a90f1f2f39e1";
+
         const icaoInput = document.getElementById('icaoInput');
         const icao = icaoInput.value.trim().toUpperCase();
         const statusEl = document.getElementById('apiStatus');
@@ -951,56 +954,51 @@
             alert("正しいICAOコード(3-4文字)を入力してください"); 
             return; 
         }
+
+        if(API_KEY === "ここにCheckWXのAPIキーを貼り付け" || API_KEY === "") {
+            alert("ソースコード内の API_KEY に Check WX のキーを設定してください");
+            return;
+        }
         
-        // ステータス表示のリセット
-        statusEl.innerText = `Connecting to NOAA for ${icao}...`;
+        // ステータス表示
+        statusEl.innerText = `Connecting to Check WX for ${icao}...`;
         statusEl.style.color = "#00A3AF"; 
         
-        // ▼▼▼ 修正: シンプルなURL構成に戻す（余計なパラメータを削除） ▼▼▼
-        // AviationWeather.gov の新しいAPIエンドポイント
-        const targetUrl = `https://aviationweather.gov/api/data/metar?ids=${icao}&format=json`;
-        
-        // プロキシを経由させる (corsproxy.io を使用)
-        // encodeURIComponentを使ってURLを正しくエンコードする
-        const url = `https://corsproxy.io/?` + encodeURIComponent(targetUrl);
-
-        console.log("Fetching URL:", url); // デバッグ用: コンソールにURLを表示
+        // Check WX API Endpoint
+        const url = `https://api.checkwx.com/metar/${icao}`;
 
         try {
-            const response = await fetch(url);
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'X-API-Key': API_KEY
+                }
+            });
             
-            // 400エラーなどが返ってきた場合の処理
             if (!response.ok) {
+                // 401はキーの間違いなど
+                if(response.status === 401) throw new Error("Invalid API Key");
                 throw new Error(`Server returned status: ${response.status}`);
             }
             
-            const text = await response.text();
-            if (!text) {
-                throw new Error("Empty response received");
-            }
-
-            // JSONパースを試みる
-            let data;
-            try {
-                data = JSON.parse(text);
-            } catch (e) {
-                console.error("JSON Parse Error. Response text:", text);
-                throw new Error("Invalid JSON format received");
-            }
+            const json = await response.json();
             
-            // データの存在確認
-            if (data && data.length > 0) {
-                const rawMetar = data[0].rawOb;
-                const obsTime = data[0].observeTime || "Unknown Time";
+            // Check WXのレスポンス形式: { "data": ["METAR string..."], "results": 1 }
+            if (json.data && json.data.length > 0) {
+                const rawMetar = json.data[0];
+                
+                // 観測時刻の抽出 (METAR文字列から簡易的に抽出)
+                const timeMatch = rawMetar.match(/\d{6}Z/);
+                const obsTime = timeMatch ? timeMatch[0] : "Unknown";
 
                 document.getElementById('metarInput').value = rawMetar;
                 
-                statusEl.innerText = `✅ Success: Updated at ${new Date().toLocaleTimeString()} (Obs: ${obsTime})`;
+                statusEl.innerText = `✅ Success: Updated via CheckWX (Obs: ${obsTime})`;
                 statusEl.style.color = "#4CAF50"; 
 
                 calcHOT(); // 計算を実行
             } else {
-                statusEl.innerText = `⚠️ Data not found for ${icao}. Check code.`;
+                statusEl.innerText = `⚠️ Data not found for ${icao}.`;
                 statusEl.style.color = "#F90"; 
             }
         } catch (error) {
@@ -1009,6 +1007,7 @@
             statusEl.style.color = "#FF3333"; 
         }
     }
+    // ▲▲▲ 変更ここまで ▲▲▲
 
     function calcSnowtam() {
         if(!DATABASE || !DATABASE["RCAM_DATA"]) { alert("Database missing RCAM_DATA."); return; }
