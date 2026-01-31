@@ -370,6 +370,25 @@
         .ref-table th, .ref-table td { border: 1px solid #444; padding: 6px; text-align: center; }
         .ref-table th { background: #333; color: #AAA; }
 
+        /* LANDING Specific Styles */
+    .section-card.landing-excluded {
+        opacity: 0.5;
+        border: 2px dashed #FF9100;
+        position: relative;
+    }
+    .section-card.landing-excluded::after {
+        content: "EXCLUDED (DEPTH/CC0)";
+        position: absolute;
+        top: 50%; left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0,0,0,0.8);
+        color: #FF9100;
+        padding: 5px 10px;
+        font-weight: bold;
+        border-radius: 4px;
+        white-space: nowrap;
+    }
+
     </style>
 
 </head>
@@ -623,6 +642,147 @@
             </div>
         </div>
     </div>
+
+
+    <div id="tab-landing" class="tab-content">
+        <div class="result-header">
+            <div class="res-row">
+                <div class="res-group">
+                    <span class="res-label">LANDING DISTANCE</span>
+                    <span class="perf-val" id="res_ldg_dist">---</span>
+                    <span class="sub-val" id="res_ldg_margin">MARGIN: --- m</span>
+                </div>
+            </div>
+            
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:5px;">
+                <div class="res-group">
+                    <span class="res-label">MAX X-WIND</span>
+                    <div><span class="limit-val" id="res_ldg_xwind">--</span> <span style="font-size:1rem;">kt</span></div>
+                </div>
+                <div class="res-group" style="text-align:right;">
+                    <span class="res-label">LIMIT CHECK</span>
+                    <div id="res_ldg_status" style="font-weight:bold; font-size:1.2rem;">--</div>
+                </div>
+            </div>
+            
+            <div id="ldg_alert_box" class="alert-box"></div>
+        </div>
+
+        <div class="setting-bar">
+            <div style="display:flex; align-items:center; gap:5px;">
+                <span class="res-label">RWY:</span>
+                <input type="text" id="ldg_rwy_id" class="rwy-input" value="34" maxlength="3" oninput="updateLdgRwyOrder()">
+            </div>
+            <div style="display:flex; gap:4px; flex:1; justify-content:flex-end;">
+                <select id="opt_flaps" onchange="calcLanding()" style="width:60px; padding:4px; font-size:0.8rem;">
+                    <option value="30">F30</option>
+                    <option value="40">F40</option>
+                </select>
+                <select id="opt_ab" onchange="calcLanding()" style="width:60px; padding:4px; font-size:0.8rem;">
+                    <option value="3">AB 3</option>
+                    <option value="2">AB 2</option>
+                    <option value="1">AB 1</option>
+                    <option value="MAX">MAX</option>
+                </select>
+                <select id="opt_rev" onchange="calcLanding()" style="width:60px; padding:4px; font-size:0.8rem;">
+                    <option value="MAX">REV MAX</option>
+                    <option value="IDLE">REV IDLE</option>
+                    <option value="NO">NO REV</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="rwy-graphic">
+            <div class="centerline"></div>
+            <div class="threshold"></div>
+            <div class="rwy-no-display" id="vis_ldg_rwy_id">34</div>
+            <div class="takeoff-arrow" style="top:10px; bottom:auto; height:120px;">
+                <div class="arrow-text" style="margin:0 0 5px 0;">LDG</div>
+                <div class="arrow-line"></div>
+                <div class="arrow-head" style="transform: rotate(180deg); margin-top:-5px; margin-bottom:0;">▲</div>
+            </div>
+
+            <div class="segment-wrapper" id="seg_container_ldg">
+                <div class="section-card cc-6" id="card_ldg_1">
+                    <div class="card-header"><span class="zone-name" id="label_ldg_1">TOUCHDOWN</span></div>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <span class="label">CONDITION</span>
+                            <select id="cond_ldg_1" onchange="autoSelectCCLanding(1)">
+                                <option value="DRY">DRY</option><option value="WET">WET</option>
+                                <option value="DRY_SNOW" selected>DRY SNOW</option><option value="WET_SNOW">WET SNOW</option>
+                                <option value="SLUSH">SLUSH</option><option value="COMPACTED">COMPACTED</option>
+                                <option value="ICE">ICE</option><option value="WET_ICE">WET ICE</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <span class="label">DEPTH</span>
+                            <input type="number" id="depth_ldg_1" placeholder="NR" value="5" oninput="autoSelectCCLanding(1)">
+                        </div>
+                        <div class="input-group">
+                            <span class="label">RWYCC</span>
+                            <select id="cc_ldg_1" class="rwycc-select cc-6" onchange="manualCCLanding(1)">
+                                <option value="6">6</option><option value="5">5</option><option value="4">4</option>
+                                <option value="3" selected>3</option><option value="2">2</option><option value="1">1</option><option value="0">0</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-card cc-6" id="card_ldg_2">
+                    <div class="card-header"><span class="zone-name" id="label_ldg_2">MIDPOINT</span></div>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <select id="cond_ldg_2" onchange="autoSelectCCLanding(2)">
+                                <option value="DRY">DRY</option><option value="WET">WET</option>
+                                <option value="DRY_SNOW" selected>DRY SNOW</option><option value="WET_SNOW">WET SNOW</option>
+                                <option value="SLUSH">SLUSH</option><option value="COMPACTED">COMPACTED</option>
+                                <option value="ICE">ICE</option><option value="WET_ICE">WET ICE</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <input type="number" id="depth_ldg_2" placeholder="NR" value="5" oninput="autoSelectCCLanding(2)">
+                        </div>
+                        <div class="input-group">
+                            <select id="cc_ldg_2" class="rwycc-select cc-6" onchange="manualCCLanding(2)">
+                                <option value="6">6</option><option value="5">5</option><option value="4">4</option>
+                                <option value="3" selected>3</option><option value="2">2</option><option value="1">1</option><option value="0">0</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-card cc-6" id="card_ldg_3">
+                    <div class="card-header"><span class="zone-name" id="label_ldg_3">ROLLOUT</span></div>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <select id="cond_ldg_3" onchange="autoSelectCCLanding(3)">
+                                <option value="DRY">DRY</option><option value="WET">WET</option>
+                                <option value="DRY_SNOW" selected>DRY SNOW</option><option value="WET_SNOW">WET SNOW</option>
+                                <option value="SLUSH">SLUSH</option><option value="COMPACTED">COMPACTED</option>
+                                <option value="ICE">ICE</option><option value="WET_ICE">WET ICE</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <input type="number" id="depth_ldg_3" placeholder="NR" value="5" oninput="autoSelectCCLanding(3)">
+                        </div>
+                        <div class="input-group">
+                            <select id="cc_ldg_3" class="rwycc-select cc-6" onchange="manualCCLanding(3)">
+                                <option value="6">6</option><option value="5">5</option><option value="4">4</option>
+                                <option value="3" selected>3</option><option value="2">2</option><option value="1">1</option><option value="0">0</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-top:15px; text-align:right;">
+                 <button class="ref-btn" onclick="toggleRefModal(true)">REF (LIMITS)</button>
+            </div>
+        </div>
+    </div>
+
+
     <div id="ref_modal" class="modal" onclick="toggleRefModal(false)">
         <div class="modal-content" onclick="event.stopPropagation()">
             <span class="close-btn" onclick="toggleRefModal(false)">&times;</span>
@@ -1381,6 +1541,138 @@
 
     function toggleRefModal(show) {
         document.getElementById('ref_modal').style.display = show ? 'block' : 'none';
+    }
+
+    // --- LANDING LOGIC ---
+
+    // Init Logic
+    function updateLdgRwyOrder() {
+        const val = document.getElementById('ldg_rwy_id').value;
+        document.getElementById('vis_ldg_rwy_id').innerText = val.toUpperCase() || "RWY";
+        calcLanding();
+    }
+
+    function autoSelectCCLanding(idx) {
+        const cond = document.getElementById('cond_ldg_' + idx).value;
+        const depth = parseFloat(document.getElementById('depth_ldg_' + idx).value) || 0;
+        let cc = 6;
+        
+        switch(cond) {
+            case "DRY": cc = 6; break;
+            case "WET": cc = 5; break;
+            // Landing limits are different, but CC mapping logic is standard RCAM
+            case "DRY_SNOW": cc = (depth > 3) ? 3 : 5; break;
+            case "WET_SNOW": cc = (depth > 3) ? 3 : 5; break;
+            case "SLUSH": cc = (depth > 3) ? 2 : 5; break;
+            case "COMPACTED": cc = 3; break;
+            case "ICE": cc = 1; break;
+            case "WET_ICE": cc = 0; break;
+        }
+        document.getElementById('cc_ldg_' + idx).value = cc;
+        manualCCLanding(idx);
+    }
+
+    function manualCCLanding(idx) {
+        const cc = document.getElementById('cc_ldg_' + idx).value;
+        const card = document.getElementById('card_ldg_' + idx);
+        const sel = document.getElementById('cc_ldg_' + idx);
+        
+        // Color Update
+        sel.className = `rwycc-select cc-${cc}`;
+        card.className = `section-card cc-${cc}`;
+        if(card.classList.contains('landing-excluded')) card.classList.add('landing-excluded');
+        
+        calcLanding();
+    }
+
+    function calcLanding() {
+        const zones = [1, 2, 3]; // 1:Touchdown, 2:Mid, 3:Rollout
+        let zoneData = [];
+        let limitMsg = "";
+        
+        // 1. Collect Data & Check Depth Limits (Landing Specific)
+        zones.forEach(i => {
+            const cond = document.getElementById('cond_ldg_' + i).value;
+            const depth = parseFloat(document.getElementById('depth_ldg_' + i).value) || 0;
+            const cc = parseInt(document.getElementById('cc_ldg_' + i).value);
+            const card = document.getElementById('card_ldg_' + i);
+            
+            // Reset Styles
+            card.classList.remove('landing-excluded');
+            
+            // Depth Limit Check (PDF P.4/P.42)
+            let isDepthOver = false;
+            // Dry Snow > 152mm (6.0 in)
+            if (cond === 'DRY_SNOW' && depth > 152) isDepthOver = true;
+            // Wet Snow > 41mm (1.6 in)
+            if (cond === 'WET_SNOW' && depth > 41) isDepthOver = true;
+            // Slush > 13mm (0.5 in)
+            if ((cond === 'SLUSH' || cond === 'WET_SNOW') && depth > 13 && cond === 'SLUSH') isDepthOver = true;
+            
+            zoneData.push({ id: i, cond, depth, cc, isDepthOver });
+        });
+
+        // 2. Logic for "Skipping 1st Zone" (PDF P.4 - RWYCC 0 handling)
+        // "進行方向最前方の1区分がRWYCC 0 (またはLimit Over) の場合、残りの2区分を使用して..."
+        let activeZones = [...zoneData];
+        
+        if (zoneData[0].cc === 0 || zoneData[0].isDepthOver) {
+            // First zone is bad. Check if we can use remaining two.
+            document.getElementById('card_ldg_1').classList.add('landing-excluded');
+            activeZones.shift(); // Remove 1st zone
+            limitMsg = "⚠️ TOUCHDOWN ZONE EXCLUDED (Use Remaining 2/3)";
+        }
+        
+        // Check remaining zones for fail conditions
+        let hardFail = false;
+        activeZones.forEach(z => {
+            if(z.cc === 0) { hardFail = true; limitMsg = "⛔ NO LANDING (RWYCC 0 in Active Zone)"; }
+            if(z.isDepthOver) { hardFail = true; limitMsg = "⛔ NO LANDING (Depth Limit Exceeded)"; }
+        });
+
+        const alertBox = document.getElementById('ldg_alert_box');
+        const statusDisp = document.getElementById('res_ldg_status');
+        const xwindDisp = document.getElementById('res_ldg_xwind');
+        
+        if(hardFail) {
+            alertBox.style.display = "block";
+            alertBox.innerText = limitMsg;
+            alertBox.style.borderColor = "#FF0000";
+            alertBox.style.color = "#FF5555";
+            statusDisp.innerText = "NO LANDING";
+            statusDisp.style.color = "#FF3333";
+            xwindDisp.innerText = "0";
+            return;
+        }
+
+        // 3. Determine Limiting CC & X-Wind
+        // "使用するRunway区分の内、低いRWYCCの最大横風値" (PDF P.4)
+        const minCC = Math.min(...activeZones.map(z => z.cc));
+        
+        // X-Wind Table (PDF P.4)
+        // 6->33, 5->25, 4->20, 3->20, 2->15, 1->10, 0->0
+        const xwindTable = { 6:33, 5:25, 4:20, 3:20, 2:15, 1:10, 0:0 };
+        const limitXw = xwindTable[minCC];
+        
+        xwindDisp.innerText = limitXw;
+        statusDisp.innerText = "CHECK OK";
+        statusDisp.style.color = "#00E676";
+        
+        if(limitMsg) {
+            alertBox.style.display = "block";
+            alertBox.innerText = limitMsg;
+            alertBox.style.borderColor = "#FF9100";
+            alertBox.style.color = "#FF9100";
+        } else {
+            alertBox.style.display = "none";
+        }
+
+        // 4. Landing Distance Calculation
+        // NOTE: Since actual FCOM data is not in JSON, we display "DATA REQ"
+        // In a real app, you would query DATABASE['LANDING_PERF'][minCC][flap][autobrake] etc.
+        document.getElementById('res_ldg_dist').innerText = "DATA REQ"; 
+        document.getElementById('res_ldg_dist').style.fontSize = "1.2rem";
+        document.getElementById('res_ldg_margin').innerText = "Ref: AOMB / JAL Perf Data";
     }
 
 </script>
