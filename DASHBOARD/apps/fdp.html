@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FDP & REST CALCULATOR</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
+    <style>
+        /* =========================================
+           CORE STYLES
+           ========================================= */
+        :root {
+            --bg: #020617;
+            --card: #1e293b;
+            --border: #334155;
+            --muted: #94a3b8;
+            --text: #f8fafc;
+            --indigo: #6366f1;
+            --danger: #ef4444;
+            --success: #10b981;
+            --amber: #f59e0b;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
+        body { margin: 0; background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; height: 100vh; width: 100vw; overflow-x: hidden; }
+
+        .fdp-container {
+            max-width: 800px; margin: 0 auto; min-height: 100vh;
+            padding: 20px; display: flex; flex-direction: column; gap: 20px;
+        }
+
+        /* Header */
+        .fdp-header {
+            display: flex; align-items: center; justify-content: space-between;
+            background: #0f172a; padding: 15px 20px; border-radius: 16px; border: 1px solid var(--border);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .fdp-title { font-family: 'JetBrains Mono'; font-weight: 900; font-size: 1.2rem; color: white; letter-spacing: 0.05em; }
+        .fdp-subtitle { font-size: 0.7rem; color: var(--indigo); font-weight: 700; margin-top: 4px; }
+        
+        /* Time Mode Switch */
+        .tm-switch {
+            display: flex; background: #1e293b; border: 1px solid var(--border); border-radius: 6px; overflow: hidden;
+        }
+        .tm-btn {
+            padding: 6px 12px; font-size: 0.75rem; font-weight: 900; color: var(--muted); border: none; background: transparent; cursor: pointer;
+        }
+        .tm-btn.active { background: var(--indigo); color: white; }
+
+        /* Grid Layout */
+        .fdp-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 768px) { .fdp-grid { grid-template-columns: 1fr; } }
+
+        /* Card Component */
+        .fdp-card {
+            background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+            padding: 20px; display: flex; flex-direction: column; gap: 18px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2); position: relative;
+        }
+
+        .fdp-sec-label {
+            font-size: 0.7rem; color: var(--muted); font-weight: 900; 
+            text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 8px;
+        }
+
+        /* Time Input */
+        .fdp-input-row {
+            display: flex; align-items: center; justify-content: center;
+            background: #0f172a; padding: 10px; border-radius: 12px; border: 1px solid var(--border);
+            position: relative;
+        }
+        .fdp-time-input {
+            background: transparent; border: none; color: white;
+            font-family: 'JetBrains Mono'; font-size: 2.5rem; font-weight: 900;
+            text-align: center; width: 100%; outline: none; cursor: pointer;
+        }
+        .input-badge {
+            position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+            font-size: 0.7rem; font-weight: 900; color: var(--muted); 
+            background: rgba(255,255,255,0.05); padding: 4px 8px; border-radius: 4px;
+        }
+        input[type="time"]::-webkit-calendar-picker-indicator { background: none; display: none; }
+
+        /* Buttons */
+        .fdp-toggle-group { display: flex; background: #0f172a; padding: 4px; border-radius: 8px; border: 1px solid var(--border); }
+        .fdp-toggle-btn {
+            flex: 1; background: transparent; border: none; color: var(--muted);
+            padding: 12px; font-weight: 900; font-size: 0.9rem; border-radius: 6px; cursor: pointer; transition: 0.2s;
+        }
+        .fdp-toggle-btn.active { background: var(--indigo); color: white; box-shadow: 0 2px 10px rgba(99, 102, 241, 0.4); }
+
+        /* Stepper */
+        .stepper-container { display: flex; align-items: stretch; width: 100%; height: 50px; gap: 4px; }
+        .stepper-btn { width: 50px; background: #334155; border: 1px solid var(--border); color: white; border-radius: 8px; font-weight: 900; font-size: 1.2rem; cursor: pointer; }
+        .stepper-btn:active { background: var(--indigo); }
+        .stepper-display {
+            flex: 1; background: #0f172a; border: 1px solid var(--border); border-radius: 8px;
+            color: white; font-family: 'JetBrains Mono'; font-weight: 900; font-size: 1.5rem;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        /* Extension Checkbox */
+        .fdp-ext-check {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 15px; border-radius: 12px; border: 1px solid var(--border);
+            background: rgba(0,0,0,0.2); cursor: pointer; transition: 0.2s;
+        }
+        .fdp-ext-check.active { background: rgba(239, 68, 68, 0.15); border-color: var(--danger); }
+        .fdp-ext-label { font-weight: 900; color: var(--muted); font-size: 0.85rem; }
+        .fdp-ext-check.active .fdp-ext-label { color: var(--danger); }
+        .fdp-indicator {
+            width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--border);
+            position: relative; transition: 0.2s;
+        }
+        .fdp-ext-check.active .fdp-indicator { background: var(--danger); border-color: var(--danger); box-shadow: 0 0 10px var(--danger); }
+
+        /* Results */
+        .fdp-res-group { text-align: center; padding: 12px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .fdp-res-group:last-child { border-bottom: none; }
+        .fdp-res-label { font-size: 0.75rem; color: var(--muted); font-weight: 900; display: block; margin-bottom: 5px; letter-spacing: 0.05em; }
+        .fdp-res-val {
+            font-family: 'JetBrains Mono'; font-size: 2.5rem; font-weight: 900; color: white;
+            text-shadow: 0 0 20px rgba(255,255,255,0.1); line-height: 1;
+        }
+        .limit-box {
+            background: rgba(99, 102, 241, 0.1); border-radius: 12px; border: 1px solid var(--indigo);
+            padding: 20px; text-align: center; margin-top: 10px;
+        }
+        .fdp-res-sub { font-family: 'JetBrains Mono'; font-size: 1rem; color: var(--indigo); font-weight: 700; margin-top: 5px; }
+
+        /* Manual Block In Input Style */
+.manual-bi-row {
+    display: flex; justify-content: center; align-items: center; gap: 10px; margin-bottom: 10px;
+    background: rgba(255,255,255,0.03); padding: 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.1);
+}
+.manual-bi-input {
+    width: 140px; padding: 5px; font-size: 1.5rem; background: #0f172a;
+    border: 1px solid var(--border); color: #f59e0b; border-radius: 6px;
+    font-family: 'JetBrains Mono'; font-weight: 900; text-align: center; outline: none;
+}
+
+        /* Next Duty Styles */
+        .rest-box {
+            background: rgba(16, 185, 129, 0.05); border: 1px solid var(--success);
+            border-radius: 12px; padding: 15px; text-align: center; margin-top: 15px;
+        }
+        .rest-val { color: var(--success); font-family: 'JetBrains Mono'; font-size: 2rem; font-weight: 900; }
+        
+        .wocl-badge {
+            display: inline-block; padding: 4px 8px; border-radius: 4px; font-size: 0.65rem; font-weight: 900;
+            background: rgba(245, 158, 11, 0.2); color: var(--amber); border: 1px solid var(--amber); margin-top: 5px;
+        }
+        .hidden { display: none; }
+        
+        .loc-toggle-btn { flex: 1; background: transparent; border: none; color: var(--muted); padding: 10px; font-weight: 900; font-size: 0.8rem; border-radius: 6px; cursor: pointer; }
+        .loc-toggle-btn.active { background: var(--success); color: #0f172a; }
+
+        /* Split Duty Style (Amber) */
+.fdp-split-check {
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 15px; border-radius: 12px; border: 1px solid var(--border);
+    background: rgba(0,0,0,0.2); cursor: pointer; transition: 0.2s; margin-top: 15px;
+}
+.fdp-split-check.active { background: rgba(245, 158, 11, 0.15); border-color: var(--amber); }
+.fdp-split-label { font-weight: 900; color: #94a3b8; font-size: 0.85rem; }
+.fdp-split-check.active .fdp-split-label { color: var(--amber); }
+
+.split-input-area {
+    display: none; align-items: center; gap: 10px; margin-top: 10px;
+    padding-top: 10px; border-top: 1px dashed rgba(255,255,255,0.1);
+}
+.split-time-input {
+    background: rgba(0,0,0,0.3); border: 1px solid var(--border); color: white;
+    font-family: 'JetBrains Mono'; font-size: 1.2rem; font-weight: 900;
+    text-align: center; width: 100px; border-radius: 6px; outline: none;
+}
+
+/* REF Button & Modal Styles */
+.fdp-ref-btn {
+    width: 100%; padding: 12px; margin-top: 15px; border-radius: 12px;
+    background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border);
+    color: var(--muted); font-weight: 900; cursor: pointer; transition: 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.fdp-ref-btn:active { background: rgba(255, 255, 255, 0.1); color: white; }
+
+/* Modal Overlay */
+.ref-modal-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.8); backdrop-filter: blur(5px); z-index: 999;
+    display: none; align-items: center; justify-content: center;
+}
+.ref-modal-content {
+    width: 95%; max-width: 600px; height: 85vh; background: #0f172a;
+    border: 1px solid var(--border); border-radius: 16px; display: flex; flex-direction: column;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+}
+
+/* Modal Header & Body */
+.ref-modal-header {
+    padding: 15px; border-bottom: 1px solid var(--border); display: flex;
+    justify-content: space-between; align-items: center; background: #1e293b;
+    border-radius: 16px 16px 0 0;
+}
+.ref-modal-title { font-weight: 900; color: white; font-size: 1rem; }
+.ref-close-btn {
+    background: transparent; border: 1px solid var(--danger); color: var(--danger);
+    padding: 5px 12px; border-radius: 6px; font-weight: 900; cursor: pointer;
+}
+.ref-modal-body { padding: 15px; overflow-y: auto; color: #cbd5e1; font-size: 0.85rem; line-height: 1.6; }
+
+/* Tables in Modal */
+.ref-table { width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 0.75rem; }
+.ref-table th, .ref-table td {
+    border: 1px solid var(--border); padding: 6px; text-align: center;
+}
+.ref-table th { background: rgba(255,255,255,0.05); color: var(--indigo); font-weight: 900; }
+.ref-table tr:nth-child(even) { background: rgba(255,255,255,0.02); }
+
+.ref-h { color: var(--indigo); font-weight: 900; margin-top: 20px; margin-bottom: 8px; border-left: 3px solid var(--indigo); padding-left: 8px; }
+.ref-note { font-size: 0.7rem; color: var(--muted); margin-top: 4px; }
+
+    </style>
+</head>
+<body>
+
+<div class="fdp-container">
+    
+    <div class="fdp-header">
+        <div>
+            <div class="fdp-title">DUTY & FDP CALC</div>
+            <div class="fdp-subtitle">OM 5.8.2.2.1 / 5.8.3.6.4 / 5.8.2.2.5.1</div>
+        </div>
+        
+        <div class="tm-switch">
+            <button class="tm-btn active" id="tmLT" onclick="setTimeMode('LT')">LT</button>
+            <button class="tm-btn" id="tmUTC" onclick="setTimeMode('UTC')">UTC</button>
+        </div>
+    </div>
+
+    <div class="fdp-grid">
+        
+        <div class="fdp-card">
+            
+            <div>
+                <div class="fdp-sec-label">SHOW UP TIME</div>
+                <div class="fdp-input-row" onclick="document.getElementById('showTime').showPicker()">
+                    <input type="time" id="showTime" class="fdp-time-input" value="06:00" onchange="calc()">
+                    <div class="input-badge" id="inputBadge">LT</div>
+                </div>
+            </div>
+           
+            
+            <div>
+                <div class="fdp-sec-label">CREW COMPOSITION</div>
+                <div class="fdp-toggle-group">
+                    <button class="fdp-toggle-btn active" id="p2" onclick="setPilot(2)">SINGLE</button>
+                    <button class="fdp-toggle-btn" id="p3" onclick="setPilot(3)">MULTI</button>
+                    <button class="fdp-toggle-btn" id="p4" onclick="setPilot(4)">DOUBLE</button>
+                </div>
+            </div>
+
+            <div>
+                <div class="fdp-sec-label">SCHEDULED LEGS</div>
+                <div class="stepper-container">
+                    <button class="stepper-btn" onclick="adjLeg(-1)">-</button>
+                    <div class="stepper-display" id="legsDisplay">2</div>
+                    <button class="stepper-btn" onclick="adjLeg(1)">+</button>
+                </div>
+            </div>
+
+            <div id="restGroup" style="display:none;">
+                <div class="fdp-sec-label">REST FACILITY</div>
+                <div class="fdp-toggle-group">
+                    <button class="fdp-toggle-btn active" id="c1" onclick="setClass('Class 1')">CLS 1</button>
+                    <button class="fdp-toggle-btn" id="c2" onclick="setClass('Class 2')">CLS 2</button>
+                    <button class="fdp-toggle-btn" id="c3" onclick="setClass('Class 3')">CLS 3</button>
+                </div>
+            </div>
+
+            <div class="fdp-ext-check" id="extBtn" onclick="toggleExt()">
+                <div>
+                    <div class="fdp-ext-label">不測の事態の適用</div>
+                    <div style="font-size:0.65rem; color:#64748b; margin-top:2px;">離陸前(+2 hour/SINGLE,+3 hour/MULTI)</div>
+                </div>
+                <div class="fdp-indicator"></div>
+            </div>
+
+            <div class="fdp-split-check" id="splitBtn" onclick="toggleSplit(event)">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <div class="fdp-split-label">SPLIT DUTY (GROUND REST)</div>
+                        <div style="font-size:0.6rem; color:#64748b;">OM 5.8.2.2.4 (MIN 3H)</div>
+                    </div>
+                    <div class="fdp-indicator" id="splitInd"></div>
+                </div>
+                
+                <div class="split-input-area" id="splitInputArea" onclick="event.stopPropagation()">
+                    <span style="font-size:0.7rem; color:#94a3b8; font-weight:900;">DURATION:</span>
+                    <input type="time" id="splitTime" class="split-time-input" value="00:00" onchange="calc()">
+                    <span style="font-size:0.7rem; color:#f59e0b; font-weight:900;" id="splitCredit">+0m</span>
+                </div>
+            </div>
+
+            <button class="fdp-ref-btn" onclick="toggleRef()">
+    <span>📖</span> OM REFERENCE
+</button>
+
+<div class="ref-modal-overlay" id="refModal">
+    <div class="ref-modal-content">
+        <div class="ref-modal-header">
+            <div class="ref-modal-title">OM REFERENCE</div>
+            <button class="ref-close-btn" onclick="toggleRef()">CLOSE</button>
+        </div>
+
+        <div class="ref-modal-body">
+            
+            <div class="ref-h" style="margin-top:0;">1. FLIGHT TIME/FDP LIMITS (SINGLE) <span style="color:#10b981; font-size:0.85rem; margin-left:20px;">Ref. OM 5.8.2.2.1</span></div>
+            <div class="ref-note" style="margin-bottom:5px;">FORMAT: FLIGHT TIME / FDP</div>
+            <table class="ref-table">
+                <thead><tr><th>START</th><th>≦2 LEG</th><th>3 LEG</th><th>4 LEG</th></tr></thead>
+                <tbody>
+                    <tr><td>00:00-</td><td>09:00/11:00</td><td>08:00/10:30</td><td>08:00/10:00</td></tr>
+                    <tr><td>05:00-</td><td>10:00/12:00</td><td>09:00/11:30</td><td>09:00/11:00</td></tr>
+                    <tr><td>06:00-</td><td>10:00/13:00</td><td>09:00/12:30</td><td>09:00/12:00</td></tr>
+                    <tr><td>14:00-</td><td>10:00/12:00</td><td>09:00/11:30</td><td>09:00/11:00</td></tr>
+                    <tr><td>16:00-</td><td>10:00/11:00</td><td>09:00/10:30</td><td>09:00/10:00</td></tr>
+                    <tr><td>17:00-</td><td>09:00/11:00</td><td>08:00/10:30</td><td>08:00/10:00</td></tr>
+                </tbody>
+            </table>
+
+            <div class="ref-h">2. FLIGHT TIME/FDP LIMITS (MULTI) <span style="color:#10b981; font-size:0.85rem; margin-left:20px;">Ref. OM 5.8.2.2.1</span></div>
+            <div class="ref-note">UPPER: &lt;=2 LEGS / LOWER: &gt;=3 LEGS</div>
+            <table class="ref-table">
+                <thead><tr><th>CREW</th><th>CLS 1</th><th>CLS 2</th><th>CLS 3</th></tr></thead>
+                <tbody>
+                    <tr><td>MULTI</td><td>15:00/17:00</td><td>13:00/16:00</td><td>13:00/15:00</td></tr>
+                    <tr><td>(3Leg以上)</td><td>15:00/16:00</td><td>13:00/15:00</td><td>13:00/14:00</td></tr>
+                    <tr><td colspan="4" style="background:#000; height:2px; padding:0;"></td></tr>
+                    <tr><td>DOUBLE</td><td>17:00/18:00</td><td>17:00/17:00</td><td>17:00/16:00</td></tr>
+                    <tr><td>(3Leg以上)</td><td>17:00/17:00</td><td>17:00/16:00</td><td>17:00/15:00</td></tr>
+                </tbody>
+            </table>
+
+            <div class="ref-h">3. EXTENSION & SPLIT <span style="color:#10b981; font-size:0.85rem; margin-left:20px;">Ref. OM 5.8.3.6.4</span></div>
+            <ul style="padding-left:20px; margin:0;">
+                <li><strong>不測の事態(離陸前):</strong><br>SINGLE: +2h / MULTI: +3h</li>
+                <li><strong>Split勤務 (Ground Rest):</strong><br>3h-10h: Add 50% of rest (2 Pilots only)<br>10h+: Resets FDP (Add 100%)</li>
+            </ul>
+
+            <div class="ref-h">4. REST REQUIREMENTS <span style="color:#10b981; font-size:0.85rem; margin-left:20px;">Ref. OM 5.8.2.2.5.1</span></div>
+            <ul style="padding-left:20px; margin:0;">
+                <li><strong>Base:</strong> Min 15h</li>
+                <li><strong>Layover:</strong> Min 11h</li>
+                <li><strong>WOCL Penalty (02:00-06:00):</strong><br>&lt;2h overlap: +2h Rest<br>≦2h overlap: +4h Rest</li>
+            </ul>
+            <div class="ref-note" style="margin-top:10px; text-align:center;">OM 5.8.2.2.1 / 5.8.3.6.4 / 5.8.2.2.5.1</div>
+        </div>
+    </div>
+</div>
+
+
+        </div>
+
+        <div class="fdp-card">
+            
+            <div class="fdp-sec-label" style="text-align:center;">LIMITATIONS (<span id="resModeLabel">LT</span>)</div>
+
+            <div class="fdp-res-group">
+                <span class="fdp-res-label">MAX FLIGHT TIME</span>
+                <div class="fdp-res-val" id="resFT" style="font-size:2rem;">--:--</div>
+            </div>
+
+            <div class="fdp-res-group">
+                <span class="fdp-res-label">MAX FDP</span>
+                <div class="fdp-res-val" id="resFDP" style="color:var(--indigo);">--:--</div>
+                <div id="extLabel" style="font-size:0.75rem; color:var(--danger); display:none; font-weight:900; margin-top:5px;">INCLUDES EXTENSION (+<span id="extHours">0</span>h)</div>
+            </div>
+
+            <div class="limit-box">
+                <span class="fdp-res-label" style="color:#818cf8;">LATEST BLOCK IN (LIMIT)</span>
+                <div class="fdp-res-val" id="resLimitTime">--:--</div>
+                <div class="fdp-res-sub" id="limitSubLabel">LOCAL TIME</div>
+            </div>
+
+            <div style="margin-top:10px; border-top:1px solid rgba(255,255,255,0.1); padding-top:15px;">
+                <div class="fdp-sec-label" style="text-align:center;">NEXT DUTY AVAILABILITY</div>
+
+                <div class="manual-bi-row">
+                  <span class="fdp-sec-label" style="margin:0; width:auto; color:#f59e0b;">ACTUAL BI:</span>
+                  <input type="time" id="manualBlockIn" class="manual-bi-input" 
+                         onchange="calc()" 
+                         onclick="try{this.showPicker()}catch(e){}">
+                </div>
+                
+                <div class="fdp-toggle-group" style="margin-bottom:10px;">
+                    <button class="loc-toggle-btn active" id="locBase" onclick="setLoc('Base')">BASE (15h)</button>
+                    <button class="loc-toggle-btn" id="locLayover" onclick="setLoc('Layover')">LAYOVER (11h)</button>
+                </div>
+
+                <div class="rest-box">
+                    <span class="fdp-res-label" style="color:#10b981;">EARLIEST SHOW UP</span>
+                    <div class="rest-val" id="resNextShow">--:--</div>
+                    
+                    <div id="woclBadge" class="wocl-badge hidden">WOCL PENALTY APPLIED (+<span id="woclHours">0</span>h)</div>
+                    <div style="font-size:0.6rem; color:#64748b; margin-top:8px;">
+                        Incl. 30m Debrief + <span id="reqRest">15</span>h Rest
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // =========================================
+    // SAFETY & UTILS
+    // =========================================
+    function getEl(id) { return document.getElementById(id); }
+
+    function showError(msg) {
+        let box = getEl('errorBox');
+        if (!box) {
+            // エラーボックスがなければ自動生成する安全策
+            box = document.createElement('div');
+            box.id = 'errorBox';
+            Object.assign(box.style, {
+                background: '#ef4444', color: 'white', padding: '10px',
+                fontWeight: 'bold', borderRadius: '8px', marginBottom: '20px', fontSize: '0.8rem'
+            });
+            const container = document.querySelector('.fdp-container') || document.body;
+            container.insertBefore(box, container.firstChild);
+        }
+        box.style.display = 'block';
+        box.innerText = "SYSTEM ERROR: " + msg;
+        console.error(msg);
+    }
+
+    function clearError() {
+        const box = getEl('errorBox');
+        if (box) box.style.display = 'none';
+    }
+
+    // =========================================
+    // STATE & CONSTANTS
+    // =========================================
+    let state = {
+        pilots: 2,
+        legs: 2,
+        restClass: 'Class 1',
+        extension: false,
+        split: false,
+        location: 'Base',
+        mode: 'LT'
+    };
+    const OFFSET_JST = 9 * 60; // 9 hours
+
+    // =========================================
+    // UI HANDLERS
+    // =========================================
+    function setTimeMode(m) {
+        state.mode = m;
+        getEl('tmLT').classList.toggle('active', m === 'LT');
+        getEl('tmUTC').classList.toggle('active', m === 'UTC');
+        getEl('inputBadge').innerText = m;
+        getEl('resModeLabel').innerText = m;
+        getEl('limitSubLabel').innerText = (m === 'LT') ? "LOCAL TIME" : "UTC / ZULU";
+        calc();
+    }
+
+    function setPilot(n) {
+        state.pilots = n;
+        [2,3,4].forEach(i => getEl(`p${i}`).classList.toggle('active', i === n));
+        const restGroup = getEl('restGroup');
+        if(restGroup) restGroup.style.display = (n > 2) ? 'block' : 'none';
+        calc();
+    }
+
+    function adjLeg(d) {
+        state.legs = Math.max(1, Math.min(6, state.legs + d));
+        getEl('legsDisplay').innerText = state.legs;
+        calc();
+    }
+
+    function setClass(c) {
+        state.restClass = c;
+        ['c1','c2','c3'].forEach((id, i) => getEl(id).classList.toggle('active', `Class ${i+1}` === c));
+        calc();
+    }
+
+    function toggleExt() {
+        state.extension = !state.extension;
+        const btn = getEl('extBtn');
+        const lbl = getEl('extLabel');
+        if(btn) btn.classList.toggle('active', state.extension);
+        if(lbl) lbl.style.display = state.extension ? 'block' : 'none';
+        
+        const extTxt = btn ? btn.querySelector('.fdp-ext-label') : null;
+        if(extTxt) extTxt.style.color = state.extension ? "#ef4444" : "#94a3b8";
+        
+        const extHours = getEl('extHours');
+        if(extHours) extHours.innerText = (state.pilots === 2) ? 2 : 3;
+        
+        calc();
+    }
+
+    function toggleSplit(e) {
+        state.split = !state.split;
+        const btn = getEl('splitBtn');
+        const area = getEl('splitInputArea');
+        const ind = getEl('splitInd');
+        
+        if(btn) btn.classList.toggle('active', state.split);
+        if(area) area.style.display = state.split ? 'flex' : 'none';
+        
+        if(ind) {
+            ind.style.background = state.split ? "#f59e0b" : "transparent";
+            ind.style.borderColor = state.split ? "#f59e0b" : "#334155";
+            ind.style.boxShadow = state.split ? "0 0 10px #f59e0b" : "none";
+        }
+        calc();
+    }
+
+    function setLoc(l) {
+        state.location = l;
+        getEl('locBase').classList.toggle('active', l === 'Base');
+        getEl('locLayover').classList.toggle('active', l === 'Layover');
+        calc();
+    }
+
+    // Toggle Reference Modal
+    function toggleRef() {
+        const modal = document.getElementById('refModal');
+        if (modal) {
+            modal.style.display = (modal.style.display === 'flex') ? 'none' : 'flex';
+        }
+    }
+
+    // =========================================
+    // HELPERS
+    // =========================================
+    function minToHm(m) {
+        if (isNaN(m)) return "--:--";
+        const h = Math.floor(m / 60);
+        const min = m % 60;
+        return (h < 10 ? "0" + h : h) + ":" + (min < 10 ? "0" + min : min);
+    }
+
+    function formatTime(totalMin) {
+        if (isNaN(totalMin)) return "--:--";
+        let n = (totalMin % 1440);
+        if (n < 0) n += 1440;
+        let h = Math.floor(n / 60);
+        let m = n % 60;
+        return (h < 10 ? "0" + h : h) + ":" + (m < 10 ? "0" + m : m);
+    }
+
+    // =========================================
+    // CORE CALCULATION
+    // =========================================
+    function calc() {
+        clearError();
+        try {
+            const showTimeEl = getEl('showTime');
+            if (!showTimeEl || !showTimeEl.value) return;
+
+            const [sh, sm] = showTimeEl.value.split(':').map(Number);
+            let inputMin = sh * 60 + sm;
+            if (isNaN(inputMin)) return;
+
+            // 1. Convert Input to LT (JST)
+            let localShowMin = (state.mode === 'UTC') ? (inputMin + OFFSET_JST) : inputMin;
+            let lookupMin = localShowMin % 1440;
+            if (lookupMin < 0) lookupMin += 1440;
+
+            let limitFT = 0;
+            let limitFDP = 0;
+
+            // 2. Table Lookup
+            if (state.pilots === 2) {
+                let colIdx = (state.legs <= 2) ? 0 : (state.legs === 3) ? 1 : (state.legs === 4) ? 2 : (state.legs === 5) ? 3 : 4;
+                // [FT, FDP]
+                const table = {
+                    "00:00-04:59": [[540, 660], [480, 630], [480, 600], [480, 570], [480, 540]],
+                    "05:00-05:59": [[600, 720], [540, 690], [540, 660], [540, 630], [540, 600]],
+                    "06:00-13:59": [[600, 780], [540, 750], [540, 720], [540, 690], [540, 660]],
+                    "14:00-15:59": [[600, 720], [540, 690], [540, 660], [540, 630], [540, 600]],
+                    "16:00-16:59": [[600, 660], [540, 630], [540, 600], [540, 570], [540, 540]],
+                    "17:00-23:59": [[540, 660], [480, 630], [480, 600], [480, 570], [480, 540]]
+                };
+
+                let rowKey;
+                if (lookupMin < 300) rowKey = "00:00-04:59";
+                else if (lookupMin < 360) rowKey = "05:00-05:59";
+                else if (lookupMin < 840) rowKey = "06:00-13:59";
+                else if (lookupMin < 960) rowKey = "14:00-15:59";
+                else if (lookupMin < 1020) rowKey = "16:00-16:59";
+                else rowKey = "17:00-23:59";
+
+                limitFT = table[rowKey][colIdx][0];
+                limitFDP = table[rowKey][colIdx][1];
+
+            } else {
+                const isFew = (state.legs <= 2);
+                const data = isFew ? {
+                    3: {"Class 1": [900, 1020], "Class 2": [779, 960], "Class 3": [779, 900]},
+                    4: {"Class 1": [1020, 1080], "Class 2": [1020, 1020], "Class 3": [1020, 960]}
+                } : {
+                    3: {"Class 1": [900, 960], "Class 2": [779, 900], "Class 3": [779, 840]},
+                    4: {"Class 1": [1020, 1020], "Class 2": [1020, 960], "Class 3": [1020, 900]}
+                };
+                limitFT = data[state.pilots][state.restClass][0];
+                limitFDP = data[state.pilots][state.restClass][1];
+            }
+
+            // 3. Extension & Split Duty
+            if (state.extension) {
+                limitFDP += (state.pilots === 2) ? 120 : 180;
+            }
+
+            let splitCredit = 0;
+            if (state.split) {
+                const splitEl = getEl('splitTime');
+                if(splitEl && splitEl.value) {
+                    const [sph, spm] = splitEl.value.split(':').map(Number);
+                    const splitMin = sph * 60 + spm;
+                    if (splitMin >= 600) splitCredit = splitMin; 
+                    else if (splitMin >= 180 && state.pilots === 2) splitCredit = Math.floor(splitMin / 2);
+                }
+                limitFDP += splitCredit;
+                getEl('splitCredit').innerText = `+${minToHm(splitCredit)}`;
+            }
+
+            // 4. Block In & Next Duty Logic
+            let blockInLimitLT = localShowMin + limitFDP;
+            let calcBlockInLT = blockInLimitLT; // Default to Limit
+
+            // --- MANUAL BI LOGIC ---
+            const manualBiEl = getEl('manualBlockIn');
+            if (manualBiEl && manualBiEl.value) {
+                const [mh, mm] = manualBiEl.value.split(':').map(Number);
+                let mInputMin = mh * 60 + mm;
+                
+                // Convert Manual Input to LT if needed
+                let mLocalMin = (state.mode === 'UTC') ? (mInputMin + OFFSET_JST) : mInputMin;
+                
+                // Day Wrap Logic: If BI time is earlier than Show time (in HH:MM), assume next day
+                let normShow = localShowMin % 1440;
+                let normManual = mLocalMin % 1440;
+                let dayStartMin = Math.floor(localShowMin / 1440) * 1440;
+                
+                if (normManual < normShow) {
+                    calcBlockInLT = dayStartMin + 1440 + normManual; // Next day
+                } else {
+                    calcBlockInLT = dayStartMin + normManual; // Same day
+                }
+            }
+
+            // 5. Display Results
+            getEl('resFT').innerText = minToHm(limitFT);
+            getEl('resFDP').innerText = minToHm(limitFDP);
+            
+            let displayLimit = (state.mode === 'UTC') ? (blockInLimitLT - OFFSET_JST) : blockInLimitLT;
+            getEl('resLimitTime').innerText = formatTime(displayLimit);
+
+            // 6. WOCL & Rest Calc (Using calcBlockInLT)
+            let woclOverlap = 0;
+            const checkWocl = (s, e, ws, we) => Math.max(0, Math.min(e, we) - Math.max(s, ws));
+            
+            // Check multiple days
+            woclOverlap += checkWocl(localShowMin, calcBlockInLT, 120, 360);
+            woclOverlap += checkWocl(localShowMin, calcBlockInLT, 1560, 1800);
+            woclOverlap += checkWocl(localShowMin, calcBlockInLT, 3000, 3240);
+
+            let penalty = 0;
+            if (woclOverlap > 0) penalty = (woclOverlap < 120) ? 120 : 240;
+
+            const badge = getEl('woclBadge');
+            if (penalty > 0) {
+                badge.classList.remove('hidden');
+                getEl('woclHours').innerText = penalty / 60;
+            } else {
+                badge.classList.add('hidden');
+            }
+
+            const baseRest = (state.location === 'Base') ? 900 : 660;
+            const totalRest = baseRest + penalty;
+            getEl('reqRest').innerText = totalRest / 60;
+
+            const nextShowLT = calcBlockInLT + 30 + totalRest;
+            let displayNext = (state.mode === 'UTC') ? (nextShowLT - OFFSET_JST) : nextShowLT;
+
+            getEl('resNextShow').innerText = formatTime(displayNext);
+
+        } catch (e) {
+            showError(e.message);
+        }
+    }
+
+    // Initialize
+    window.onload = function() { calc(); };
+</script>
+
+</body>
+</html>
