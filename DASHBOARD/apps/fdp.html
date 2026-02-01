@@ -29,6 +29,16 @@
             padding: 20px; display: flex; flex-direction: column; gap: 20px;
         }
 
+        /* Back Button Style */
+.back-btn {
+    background: transparent; border: 1px solid var(--border);
+    color: var(--muted); width: 40px; height: 40px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: 0.2s; flex-shrink: 0; margin-right: 12px;
+}
+.back-btn:active { background: var(--indigo); color: white; border-color: var(--indigo); }
+.back-btn svg { width: 20px; height: 20px; stroke: currentColor; stroke-width: 3; }
+
         /* Header */
         .fdp-header {
             display: flex; align-items: center; justify-content: space-between;
@@ -227,9 +237,16 @@
 <div class="fdp-container">
     
     <div class="fdp-header">
-        <div>
-            <div class="fdp-title">DUTY & FDP CALC</div>
-            <div class="fdp-subtitle">OM 5.8.2.2.1 / 5.8.3.6.4 / 5.8.2.2.5.1</div>
+        <div style="display:flex; align-items:center;">
+            <button class="back-btn" onclick="location.href='index.html'">
+                <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M15 18l-6-6 6-6"/>
+                </svg>
+            </button>
+            <div>
+                <div class="fdp-title">DUTY & FDP CALC</div>
+                <div class="fdp-subtitle">OM 5.8.2.2.1 / 5.8.3.6.4 / 5.8.2.2.5.1</div>
+            </div>
         </div>
         
         <div class="tm-switch">
