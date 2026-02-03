@@ -10,6 +10,11 @@
 <meta name="apple-mobile-web-app-title" content="CO-PILOT">
 
     <link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CO-PILOT">
     <link rel="manifest" href="manifest.json">
     <link rel="stylesheet" href="./css/v2_style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
@@ -29,12 +34,11 @@
 
             <div class="action-grid">
     
-    <a href="#" class="action-card action-interval action-disabled">
-        <div class="cs-stamp">COMING SOON</div>
-        <div class="action-icon">📖</div>
-        <div class="action-title">QUICK<br>REFERENCE</div>
-        <div class="action-sub">OM / QRH</div>
-    </a>
+    <div onclick="location.href='apps/pmm.html'" class="action-card" style="cursor:pointer; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color:white; border: 1px solid #334155;">
+        <div class="action-icon">🛡️</div>
+        <div class="action-title">TEM<br>DASHBOARD</div>
+        <div class="action-sub">THREAT & ERROR MGT</div>
+    </div>
 
     <div onclick="location.href='v2_copilot.html'" class="action-card action-ship" style="cursor:pointer;">
         <div class="action-icon">✈️</div>
