@@ -91,12 +91,12 @@
         </transition>
 
         <main class="flex-1 overflow-y-auto bg-slate-950 p-6" @click="popover.isOpen = false">
-            <div v-if="selected.length === 0" class="h-full flex flex-col items-center justify-center">
-                <div class="w-20 h-20 mb-6 border-2 border-slate-800 rounded-full flex items-center justify-center">
-                    <div class="w-12 h-12 border border-slate-700 rounded-full animate-pulse"></div>
+           <div v-if="selected.length === 0" class="h-full flex flex-col items-center justify-center">
+                <div class="w-24 h-24 mb-6 border-2 border-slate-800 rounded-full flex items-center justify-center">
+                    <div class="w-16 h-16 border border-slate-700 rounded-full animate-pulse"></div>
                 </div>
-                <p class="text-xl font-light text-slate-600 tracking-[0.3em] italic">Standby</p>
-                <p class="text-[9px] mt-3 text-slate-700 tracking-[0.3em]">Identify threats</p>
+                <p class="text-2xl font-light text-slate-600 tracking-[0.4em] italic">Standby for Briefing</p>
+                <p class="text-[10px] mt-4 text-slate-700 tracking-[0.4em]">Identify threats to activate models</p>
             </div>
             
             <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 animate-in fade-in duration-500">
