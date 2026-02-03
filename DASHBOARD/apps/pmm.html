@@ -90,40 +90,43 @@
             </div>
         </transition>
 
-        <main class="flex-1 overflow-y-auto bg-slate-950 p-10" @click="popover.isOpen = false">
+        <main class="flex-1 overflow-y-auto bg-slate-950 p-6" @click="popover.isOpen = false">
             <div v-if="selected.length === 0" class="h-full flex flex-col items-center justify-center">
-                <div class="w-24 h-24 mb-6 border-2 border-slate-800 rounded-full flex items-center justify-center">
-                    <div class="w-16 h-16 border border-slate-700 rounded-full animate-pulse"></div>
+                <div class="w-20 h-20 mb-6 border-2 border-slate-800 rounded-full flex items-center justify-center">
+                    <div class="w-12 h-12 border border-slate-700 rounded-full animate-pulse"></div>
                 </div>
-                <p class="text-2xl font-light text-slate-600 tracking-[0.4em] italic">Standby for Briefing</p>
-                <p class="text-[10px] mt-4 text-slate-700 tracking-[0.4em]">Identify threats to activate models</p>
+                <p class="text-xl font-light text-slate-600 tracking-[0.3em] italic">Standby</p>
+                <p class="text-[9px] mt-3 text-slate-700 tracking-[0.3em]">Identify threats</p>
             </div>
-            <div v-else class="grid grid-cols-1 xl:grid-cols-2 gap-8 animate-in fade-in duration-500">
-                <div v-for="topic in selected" :key="topic" class="relative bg-gradient-to-br from-[#0f141a] to-[#0a0c10] border border-slate-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col">
+            
+            <div v-else class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 animate-in fade-in duration-500">
+                <div v-for="topic in selected" :key="topic" class="relative bg-gradient-to-br from-[#0f141a] to-[#0a0c10] border border-slate-800 rounded-xl overflow-hidden shadow-2xl flex flex-col">
+                    
                     <div :class="getCategoryColor(database[topic]?.category || 'GENERAL')" class="h-1 w-full opacity-70"></div>
-                    <div class="px-8 py-4 border-b border-slate-800/50 flex justify-between items-center bg-slate-900/20">
-                        <span class="text-[10px] font-black text-slate-500 tracking-[0.3em] uppercase">{{ database[topic]?.category }}</span>
-                        <button @click="toggleTopic(topic)" class="text-slate-700 hover:text-red-400 text-xs font-bold px-2 py-1">REMOVE</button>
+                    
+                    <div class="px-4 py-3 border-b border-slate-800/50 flex justify-between items-center bg-slate-900/20">
+                        <span class="text-[10px] font-black text-slate-500 tracking-[0.2em] uppercase">{{ database[topic]?.category }}</span>
+                        <button @click="toggleTopic(topic)" class="text-slate-600 hover:text-red-400 text-[11px] font-bold px-1 transition-colors">✕</button>
                     </div>
-                    <div class="p-8 flex-1">
-                        <header class="mb-8 flex items-baseline gap-4">
-                            <h2 class="text-3xl font-black tracking-tight text-white leading-none">{{ topic }}</h2>
+                    
+                    <div class="p-5 flex-1">
+                        <header class="mb-4 flex items-baseline gap-2">
+                            <h2 class="text-xl font-black tracking-tight text-white leading-none break-words">{{ topic }}</h2>
                             <span class="h-[1px] flex-1 bg-slate-800/50"></span>
                         </header>
-                        <ul class="space-y-5">
-                            <li v-for="(task, index) in database[topic]?.tasks" :key="index" class="group flex items-center justify-between cursor-pointer" @click="toggleTask(topic, index)">
-                                <div class="flex items-center gap-5">
-                                    <div class="relative w-5 h-5 border border-slate-700 rounded-sm flex items-center justify-center transition-colors group-hover:border-slate-500" :class="task.checked ? 'border-blue-500 bg-blue-500/10' : ''">
-                                        <div class="w-2 h-2 bg-blue-500 shadow-[0_0_10px_#3b82f6] transition-transform duration-200" :class="task.checked ? 'scale-100' : 'scale-0'"></div>
-                                    </div>
-                                    <span class="text-[15px] font-bold tracking-wide transition-colors" :class="task.checked ? 'text-slate-600 line-through decoration-2 decoration-slate-800' : 'text-slate-300 group-hover:text-white'">{{ task.text }}</span>
+                        
+                        <ul class="space-y-3">
+                            <li v-for="(task, index) in database[topic]?.tasks" :key="index" class="group flex items-start gap-3 cursor-pointer" @click="toggleTask(topic, index)">
+                                <div class="relative w-4 h-4 mt-0.5 border border-slate-700 rounded-sm flex-shrink-0 flex items-center justify-center transition-colors group-hover:border-slate-500" :class="task.checked ? 'border-blue-500 bg-blue-500/10' : ''">
+                                    <div class="w-2 h-2 bg-blue-500 shadow-[0_0_5px_#3b82f6] transition-transform duration-200" :class="task.checked ? 'scale-100' : 'scale-0'"></div>
                                 </div>
+                                <span class="text-[13px] font-bold tracking-wide transition-colors leading-snug" :class="task.checked ? 'text-slate-600 line-through decoration-2 decoration-slate-800' : 'text-slate-300 group-hover:text-white'">{{ task.text }}</span>
                             </li>
                         </ul>
                     </div>
                 </div>
             </div>
-            <div class="h-24"></div>
+            <div class="h-12"></div>
         </main>
 
         <transition>
