@@ -8,6 +8,7 @@
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
         body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; background-color: #0b0e14; }
@@ -75,18 +76,16 @@
                     <h3 class="text-xs font-black text-blue-400 tracking-[0.3em] uppercase">{{ popover.cat }} Select</h3>
                     <button @click="popover.isOpen = false" class="text-slate-500 hover:text-white font-bold text-xs">DONE</button>
                 </header>
-                <div class="p-6 overflow-y-auto grid grid-cols-2 gap-3">
-                    <button v-for="topic in categorizedDatabase[popover.cat]" :key="topic" @click="toggleTopic(topic)"
+               <div id="sortable-grid" class="p-6 overflow-y-auto grid grid-cols-2 gap-3">
+                    <div v-for="topic in categorizedDatabase[popover.cat]" :key="topic" :data-id="topic" 
+                        @click="toggleTopic(topic)"
                         :class="selected.includes(topic) ? 'bg-blue-600 border-blue-400 text-white ring-2 ring-blue-400/30' : 'bg-slate-700/50 border-slate-600 text-slate-400'"
-                        class="p-4 rounded-xl border-2 text-left transition-all active:scale-95 flex flex-col justify-center h-24 shadow-lg">
-                        <span class="text-[13px] font-black leading-tight">{{ topic }}</span>
-                        <div v-if="selected.includes(topic)" class="flex justify-end mt-2"><span class="text-[9px] font-black bg-white/20 px-1.5 py-0.5 rounded">ADDED</span></div>
-                    </button>
-                    <div v-if="(!categorizedDatabase[popover.cat] || categorizedDatabase[popover.cat].length === 0)" class="col-span-2 text-center py-10 opacity-50">
-                        <p class="text-xs font-bold text-slate-500">NO TOPICS IN DATABASE</p>
-                        <p class="text-[9px] mt-2">USE "MANAGE DATABASE" TO ADD</p>
+                        class="p-4 rounded-xl border-2 text-left transition-all active:scale-95 flex flex-col justify-center h-24 shadow-lg cursor-move select-none touch-manipulation">
+                        
+                        <span class="text-[13px] font-black leading-tight pointer-events-none">{{ topic }}</span>
+                        <div v-if="selected.includes(topic)" class="flex justify-end mt-2 pointer-events-none"><span class="text-[9px] font-black bg-white/20 px-1.5 py-0.5 rounded">ADDED</span></div>
                     </div>
-                </div>
+                    </div>
             </div>
         </transition>
 
@@ -211,7 +210,7 @@
         }
         const db = firebase.database();
 
-        const { createApp, ref, computed, onMounted } = Vue;
+        const { createApp, ref, computed, onMounted, nextTick } = Vue;
         createApp({
             setup() {
                 const selected = ref([]);
@@ -253,18 +252,79 @@
                 const categorizedDatabase = computed(() => {
                     const dict = {}; 
                     categories.forEach(c => dict[c] = []);
+                    
+                    // 1. 全データをカテゴリーごとに分類
+                    const tempDict = {}; // 一時保存用
                     for (const [topic, data] of Object.entries(database.value)) {
-                        // データにカテゴリーが無い、または旧カテゴリーの場合の安全策
                         const cat = categories.includes(data.category) ? data.category : 'GENERAL';
-                        if (!dict[cat]) dict[cat] = [];
-                        dict[cat].push(topic);
+                        if (!tempDict[cat]) tempDict[cat] = [];
+                        // orderが無い場合は、仮に巨大な数字を入れておく（最後尾に回すため）
+                        const orderVal = (data.order !== undefined && data.order !== null) ? data.order : 9999;
+                        tempDict[cat].push({ topic, order: orderVal });
+                    }
+
+                    // 2. orderの数字が小さい順に並び替え
+                    for (const cat in tempDict) {
+                        // 並び替え実行
+                        tempDict[cat].sort((a, b) => a.order - b.order);
+                        // トピック名の配列に戻して dict に格納
+                        dict[cat] = tempDict[cat].map(item => item.topic);
                     }
                     return dict;
                 });
+                
+                // ▼▼▼ ドラッグ＆ドロップ対応版 togglePopover ▼▼▼
+                let sortableInstance = null;
 
                 const togglePopover = (cat) => {
-                    if (popover.value.isOpen && popover.value.cat === cat) { popover.value.isOpen = false; } 
-                    else { popover.value.cat = cat; popover.value.isOpen = true; }
+                    if (popover.value.isOpen && popover.value.cat === cat) {
+                        popover.value.isOpen = false;
+                        return;
+                    }
+                    
+                    popover.value.cat = cat; 
+                    popover.value.isOpen = true;
+
+                    nextTick(() => {
+                        const el = document.getElementById('sortable-grid');
+                        if (el) {
+                            if (sortableInstance) sortableInstance.destroy();
+                            
+                            sortableInstance = new Sortable(el, {
+                                animation: 250,
+                                delay: 200,
+                                delayOnTouchOnly: true,
+                                ghostClass: 'opacity-50',
+                                onEnd: (evt) => {
+                                    const newIndex = evt.newIndex;
+                                    const oldIndex = evt.oldIndex;
+                                    
+                                    // 位置が変わっていなければ何もしない
+                                    if (newIndex === oldIndex) return;
+
+                                    // 1. 現在の並び順（配列）をコピー
+                                    // categorizedDatabaseは並び替え済みなので、ここから取得するのが正解
+                                    const currentList = [...categorizedDatabase.value[cat]];
+                                    
+                                    // 2. 配列の中でアイテムを移動させる
+                                    const movedItem = currentList.splice(oldIndex, 1)[0];
+                                    currentList.splice(newIndex, 0, movedItem);
+
+                                    // 3. 【重要】新しい順番で全アイテムに番号を振り直して一括保存
+                                    const updates = {};
+                                    currentList.forEach((topicName, index) => {
+                                        // データベースの "tem_database/トピック名/order" を更新
+                                        updates['tem_database/' + topicName + '/order'] = index;
+                                    });
+
+                                    // Firebaseに一括送信（これで保存漏れがなくなります）
+                                    db.ref().update(updates)
+                                      .then(() => console.log('Order updated!'))
+                                      .catch(err => console.error('Update failed', err));
+                                }
+                            });
+                        }
+                    });
                 };
 
                 const toggleTopic = (topic) => {
