@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TEM DASHBOARD</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; background-color: #0b0e14; }
+        .popover-arrow::before {
+            content: ""; position: absolute; left: -10px; top: 24px;
+            border-width: 10px 10px 10px 0; border-color: transparent #1e293b transparent transparent;
+        }
+        .v-enter-active, .v-leave-active { transition: all 0.2s ease-out; opacity: 1; }
+        .v-enter-from, .v-leave-to { opacity: 0; }
+        ::-webkit-scrollbar { width: 4px; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+    </style>
+</head>
+<body class="text-slate-200 select-none overflow-hidden h-screen w-screen uppercase tracking-tight">
+    <div id="app" class="flex h-full w-full relative">
+        
+        <aside class="w-72 border-r border-slate-800 flex flex-col bg-[#0f141a] z-30 relative shadow-2xl">
+            <div class="p-8 border-b border-slate-800 flex justify-between items-center">
+                <div class="flex flex-col">
+                    <span class="text-2xl font-black tracking-[0.3em] text-white leading-none">TEM</span>
+                    <span class="text-[9px] font-bold tracking-[0.6em] text-blue-500 uppercase mt-2 ml-0.5">Cloud Sync</span>
+                </div>
+                <div class="flex items-center gap-2">
+                     <div v-if="!connected" class="w-2 h-2 rounded-full bg-red-500"></div>
+                     <div v-if="syncing" class="w-2 h-2 rounded-full bg-blue-500 animate-ping"></div>
+                </div>
+            </div>
+
+            <nav class="flex-1 overflow-y-auto py-6">
+                <div v-for="cat in categories" :key="cat" class="mb-6 relative">
+                    <button @click.stop="togglePopover(cat)"
+                        :class="popover.cat === cat ? 'bg-slate-800 text-white' : 'text-slate-400'"
+                        class="w-full px-6 py-3 flex justify-between items-center group transition-colors">
+                        <div class="flex items-center gap-4">
+                            <span class="w-2 h-2 rounded-full shadow-[0_0_8px_currentColor]" :class="getCategoryColor(cat)"></span>
+                            <span class="text-[11px] font-black tracking-widest">{{ cat }}</span>
+                        </div>
+                    </button>
+                    <ul class="mt-1 space-y-1 px-4">
+                        <li v-for="topic in getSelectedInCat(cat)" :key="topic" @click="toggleTopic(topic)"
+                            class="flex items-center gap-3 px-4 py-2 text-[12px] font-bold text-slate-300 border-l border-slate-700 ml-4 hover:text-red-400 cursor-pointer transition active:scale-95">
+                            {{ topic }}
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+            
+            <div class="p-4 border-t border-slate-800 flex flex-col gap-2">
+                <button @click="showAdmin = true" class="w-full py-3 text-[9px] font-black text-blue-500 border border-blue-900/30 rounded bg-blue-950/10 hover:bg-blue-900 hover:text-white transition uppercase tracking-widest">Manage Database</button>
+                <button @click="resetSelection" class="w-full py-2 text-[9px] font-bold text-slate-600 hover:text-red-500 transition uppercase tracking-widest">Reset Briefing</button>
+            </div>
+        </aside>
+
+        <transition>
+            <div v-if="popover.isOpen" class="fixed z-50 left-72 top-4 bottom-4 w-[500px] bg-slate-800 border border-slate-700 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] popover-arrow flex flex-col overflow-hidden" style="margin-left: 10px;">
+                <header class="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
+                    <h3 class="text-xs font-black text-blue-400 tracking-[0.3em] uppercase">{{ popover.cat }} Select</h3>
+                    <button @click="popover.isOpen = false" class="text-slate-500 hover:text-white font-bold text-xs">DONE</button>
+                </header>
+                <div class="p-6 overflow-y-auto grid grid-cols-2 gap-3">
+                    <button v-for="topic in categorizedDatabase[popover.cat]" :key="topic" @click="toggleTopic(topic)"
+                        :class="selected.includes(topic) ? 'bg-blue-600 border-blue-400 text-white ring-2 ring-blue-400/30' : 'bg-slate-700/50 border-slate-600 text-slate-400'"
+                        class="p-4 rounded-xl border-2 text-left transition-all active:scale-95 flex flex-col justify-center h-24 shadow-lg">
+                        <span class="text-[13px] font-black leading-tight">{{ topic }}</span>
+                        <div v-if="selected.includes(topic)" class="flex justify-end mt-2"><span class="text-[9px] font-black bg-white/20 px-1.5 py-0.5 rounded">ADDED</span></div>
+                    </button>
+                    <div v-if="(!categorizedDatabase[popover.cat] || categorizedDatabase[popover.cat].length === 0)" class="col-span-2 text-center py-10 opacity-50">
+                        <p class="text-xs font-bold text-slate-500">NO TOPICS IN DATABASE</p>
+                        <p class="text-[9px] mt-2">USE "MANAGE DATABASE" TO ADD</p>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
+        <main class="flex-1 overflow-y-auto bg-slate-950 p-10" @click="popover.isOpen = false">
+            <div v-if="selected.length === 0" class="h-full flex flex-col items-center justify-center">
+                <div class="w-24 h-24 mb-6 border-2 border-slate-800 rounded-full flex items-center justify-center">
+                    <div class="w-16 h-16 border border-slate-700 rounded-full animate-pulse"></div>
+                </div>
+                <p class="text-2xl font-light text-slate-600 tracking-[0.4em] italic">Standby for Briefing</p>
+                <p class="text-[10px] mt-4 text-slate-700 tracking-[0.4em]">Identify threats to activate models</p>
+            </div>
+            <div v-else class="grid grid-cols-1 xl:grid-cols-2 gap-8 animate-in fade-in duration-500">
+                <div v-for="topic in selected" :key="topic" class="relative bg-gradient-to-br from-[#0f141a] to-[#0a0c10] border border-slate-800 rounded-3xl overflow-hidden shadow-2xl flex flex-col">
+                    <div :class="getCategoryColor(database[topic]?.category || 'GENERAL')" class="h-1 w-full opacity-70"></div>
+                    <div class="px-8 py-4 border-b border-slate-800/50 flex justify-between items-center bg-slate-900/20">
+                        <span class="text-[10px] font-black text-slate-500 tracking-[0.3em] uppercase">{{ database[topic]?.category }}</span>
+                        <button @click="toggleTopic(topic)" class="text-slate-700 hover:text-red-400 text-xs font-bold px-2 py-1">REMOVE</button>
+                    </div>
+                    <div class="p-8 flex-1">
+                        <header class="mb-8 flex items-baseline gap-4">
+                            <h2 class="text-3xl font-black tracking-tight text-white leading-none">{{ topic }}</h2>
+                            <span class="h-[1px] flex-1 bg-slate-800/50"></span>
+                        </header>
+                        <ul class="space-y-5">
+                            <li v-for="(task, index) in database[topic]?.tasks" :key="index" class="group flex items-center justify-between cursor-pointer" @click="toggleTask(topic, index)">
+                                <div class="flex items-center gap-5">
+                                    <div class="relative w-5 h-5 border border-slate-700 rounded-sm flex items-center justify-center transition-colors group-hover:border-slate-500" :class="task.checked ? 'border-blue-500 bg-blue-500/10' : ''">
+                                        <div class="w-2 h-2 bg-blue-500 shadow-[0_0_10px_#3b82f6] transition-transform duration-200" :class="task.checked ? 'scale-100' : 'scale-0'"></div>
+                                    </div>
+                                    <span class="text-[15px] font-bold tracking-wide transition-colors" :class="task.checked ? 'text-slate-600 line-through decoration-2 decoration-slate-800' : 'text-slate-300 group-hover:text-white'">{{ task.text }}</span>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="h-24"></div>
+        </main>
+
+        <transition>
+            <div v-if="showAdmin" class="fixed inset-0 z-[100] bg-black/90 backdrop-blur-sm flex items-center justify-center p-8">
+                <div class="bg-[#0f141a] border border-slate-700 w-full max-w-5xl h-[85vh] flex flex-col rounded-3xl shadow-2xl">
+                    <header class="p-8 border-b border-slate-800 flex justify-between items-center bg-slate-900/50 rounded-t-3xl">
+                        <h2 class="text-xl font-black tracking-widest text-blue-500 uppercase">Manage Database</h2>
+                        <button @click="showAdmin = false" class="text-slate-500 hover:text-white font-bold text-xs tracking-widest">CLOSE PANEL</button>
+                    </header>
+                    <div class="flex-1 overflow-hidden grid grid-cols-2 divide-x divide-slate-800">
+                        <div class="p-8 overflow-y-auto space-y-6">
+                            <h3 class="text-xs font-black text-slate-500 tracking-widest">NEW ENTRY</h3>
+                            <div class="space-y-4">
+                                <label class="block text-[10px] font-bold text-slate-600">CATEGORY</label>
+                                <select v-model="newItem.category" class="w-full bg-slate-800 border border-slate-700 p-4 rounded-xl text-white font-bold outline-none focus:border-blue-500 transition">
+                                    <option v-for="c in categories" :value="c">{{ c }}</option>
+                                </select>
+                                
+                                <label class="block text-[10px] font-bold text-slate-600">TOPIC NAME</label>
+                                <input v-model="newItem.topic" type="text" placeholder="e.g. SNOW / HEAVY TRAFFIC" class="w-full bg-slate-800 border border-slate-700 p-4 rounded-xl text-white font-bold outline-none focus:border-blue-500 transition">
+                                
+                                <label class="block text-[10px] font-bold text-slate-600">THREATS / TASKS (Line break)</label>
+                                <textarea v-model="newItem.tasks" rows="8" placeholder="- Check HOT&#10;- Confirm RCC&#10;- Review Anti-ice procedures" class="w-full bg-slate-800 border border-slate-700 p-4 rounded-xl text-white font-medium outline-none focus:border-blue-500 transition"></textarea>
+                            </div>
+                            <button @click="saveNewItem" class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl shadow-lg shadow-blue-900/20 active:scale-95 transition">SYNC TO CLOUD</button>
+                        </div>
+                        <div class="p-8 overflow-y-auto space-y-4 bg-slate-900/30">
+                            <h3 class="text-xs font-black text-slate-500 tracking-widest mb-4">CURRENT DATABASE</h3>
+                            
+                            <div v-for="cat in categories" :key="cat" class="rounded-xl overflow-hidden border border-slate-800 bg-slate-800/30">
+                                <button @click="toggleAccordion(cat)" class="w-full flex items-center justify-between p-4 hover:bg-slate-800 transition">
+                                    <div class="flex items-center gap-3">
+                                        <div class="transition-transform duration-200" :class="expandedCategories.includes(cat) ? 'rotate-90' : 'rotate-0'">
+                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                                        </div>
+                                        <span class="w-2 h-2 rounded-full shadow-[0_0_5px_currentColor]" :class="getCategoryColor(cat)"></span>
+                                        <span class="text-[11px] font-black tracking-widest text-slate-400">{{ cat }}</span>
+                                    </div>
+                                    <span class="text-[9px] font-bold bg-slate-900 text-slate-500 px-2 py-1 rounded-md">
+                                        {{ categorizedDatabase[cat] ? categorizedDatabase[cat].length : 0 }}
+                                    </span>
+                                </button>
+
+                                <div v-if="expandedCategories.includes(cat)" class="bg-slate-900/50 border-t border-slate-800">
+                                    <div v-if="categorizedDatabase[cat] && categorizedDatabase[cat].length > 0" class="divide-y divide-slate-800/50">
+                                        <div v-for="topic in categorizedDatabase[cat]" :key="topic" class="flex items-center justify-between p-4 pl-10 hover:bg-white/5 transition group">
+                                            <span class="text-sm font-bold text-slate-300 group-hover:text-white transition">{{ topic }}</span>
+                                            <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <button @click="editItem(topic)" class="text-blue-400 hover:text-white text-[9px] font-black px-2 py-1 border border-blue-900/50 rounded bg-blue-900/20">EDIT</button>
+                                                <button @click="deleteItem(topic)" class="text-slate-500 hover:text-red-500 text-[9px] font-black px-2 py-1 border border-slate-800 rounded hover:bg-red-900/20">DEL</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div v-else class="p-4 pl-10 text-[10px] text-slate-600 italic">
+                                        NO DATABASE
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </transition>
+    </div>
+
+    <script>
+        // ▼▼▼ ここにFirebaseのConfigを貼り付けてください ▼▼▼
+        const firebaseConfig = {
+    apiKey: "AIzaSyBJOI2CKAbi3H2e6QbjZEAs-vFUSsPEb-E",
+    authDomain: "tem-database-cdcfc.firebaseapp.com",
+    databaseURL: "https://tem-database-cdcfc-default-rtdb.firebaseio.com",
+    projectId: "tem-database-cdcfc",
+    storageBucket: "tem-database-cdcfc.firebasestorage.app",
+    messagingSenderId: "491385821487",
+    appId: "1:491385821487:web:adbcb3d7d875bf40a529da"
+  };
+        // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+        
+        // Initialize Firebase
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        const db = firebase.database();
+
+        const { createApp, ref, computed, onMounted } = Vue;
+        createApp({
+            setup() {
+                const selected = ref([]);
+                const showAdmin = ref(false);
+                const popover = ref({ isOpen: false, cat: '' });
+                const newItem = ref({ category: 'GENERAL', topic: '', tasks: '' });
+                const database = ref({});
+                const syncing = ref(false);
+                const connected = ref(false);
+
+                // Updated Category List
+                const categories = [
+                    'GENERAL',
+                    'AIRCRAFT',
+                    'PAX',
+                    'OPERATIONAL',
+                    'WX',
+                    'NOTAM',
+                    'IRREGULAR',
+                    'EMERGENCY',
+                    'REFERENCE'
+                ];
+
+                onMounted(() => {
+                    // Connection Status
+                    db.ref('.info/connected').on('value', (snap) => {
+                        connected.value = snap.val() === true;
+                    });
+                    
+                    // Sync Data
+                    db.ref('tem_database').on('value', (snapshot) => {
+                        syncing.value = true;
+                        const val = snapshot.val();
+                        database.value = val || {};
+                        setTimeout(() => syncing.value = false, 500);
+                    });
+                });
+
+                const categorizedDatabase = computed(() => {
+                    const dict = {}; 
+                    categories.forEach(c => dict[c] = []);
+                    for (const [topic, data] of Object.entries(database.value)) {
+                        // データにカテゴリーが無い、または旧カテゴリーの場合の安全策
+                        const cat = categories.includes(data.category) ? data.category : 'GENERAL';
+                        if (!dict[cat]) dict[cat] = [];
+                        dict[cat].push(topic);
+                    }
+                    return dict;
+                });
+
+                const togglePopover = (cat) => {
+                    if (popover.value.isOpen && popover.value.cat === cat) { popover.value.isOpen = false; } 
+                    else { popover.value.cat = cat; popover.value.isOpen = true; }
+                };
+
+                const toggleTopic = (topic) => {
+                    if (selected.value.includes(topic)) {
+                        selected.value = selected.value.filter(t => t !== topic);
+                        // リセットロジック：必要に応じて
+                        if(database.value[topic] && database.value[topic].tasks) {
+                            database.value[topic].tasks.forEach(t => t.checked = false);
+                            db.ref('tem_database/' + topic).update({ tasks: database.value[topic].tasks });
+                        }
+                    } else { selected.value.push(topic); }
+                };
+
+                const toggleTask = (topic, index) => {
+                    if (database.value[topic] && database.value[topic].tasks[index]) {
+                        database.value[topic].tasks[index].checked = !database.value[topic].tasks[index].checked;
+                        db.ref('tem_database/' + topic + '/tasks/' + index).update({ checked: database.value[topic].tasks[index].checked });
+                    }
+                };
+
+                const saveNewItem = () => {
+                    if (!newItem.value.topic || !newItem.value.tasks) return;
+                    const taskArray = newItem.value.tasks.split('\n').filter(t => t.trim() !== '').map(t => ({ text: t, checked: false }));
+                    db.ref('tem_database/' + newItem.value.topic).set({ category: newItem.value.category, tasks: taskArray });
+                    newItem.value.topic = ''; newItem.value.tasks = '';
+                };
+
+                const deleteItem = (topic) => {
+                    if (confirm(`DELETE "${topic}" FROM CLOUD?`)) { 
+                        db.ref('tem_database/' + topic).remove();
+                        selected.value = selected.value.filter(t => t !== topic);
+                    }
+                };
+
+                const expandedCategories = ref(['GENERAL']); // 初期状態でGENERALだけ開いておく
+
+                const toggleAccordion = (cat) => {
+                    if (expandedCategories.value.includes(cat)) {
+                        expandedCategories.value = expandedCategories.value.filter(c => c !== cat);
+                    } else {
+                        expandedCategories.value.push(cat);
+                    }
+                };
+
+                const editItem = (topic) => {
+                    const data = database.value[topic];
+                    if (!data) return;
+                    
+                    // フォームに既存のデータをセットする
+                    newItem.value.category = data.category;
+                    newItem.value.topic = topic;
+                    // タスク配列をテキスト（改行区切り）に戻す
+                    if (data.tasks) {
+                        newItem.value.tasks = data.tasks.map(t => t.text).join('\n');
+                    } else {
+                        newItem.value.tasks = '';
+                    }
+                };
+                
+                const resetSelection = () => {
+                     selected.value = [];
+                };
+
+                const getSelectedInCat = (cat) => selected.value.filter(t => database.value[t] && database.value[t].category === cat);
+                
+                // New Color Mapping
+                const getCategoryColor = (cat) => ({ 
+                    'GENERAL': 'bg-slate-500 text-slate-500', 
+                    'AIRCRAFT': 'bg-orange-500 text-orange-500', 
+                    'PAX': 'bg-rose-500 text-rose-500', 
+                    'OPERATIONAL': 'bg-emerald-500 text-emerald-500', 
+                    'WX': 'bg-cyan-500 text-cyan-500', 
+                    'NOTAM': 'bg-yellow-500 text-yellow-500', 
+                    'IRREGULAR': 'bg-purple-500 text-purple-500',
+                    'EMERGENCY': 'bg-red-600 text-red-600',
+                    'REFERENCE': 'bg-indigo-500 text-indigo-500'
+                }[cat] || 'bg-slate-500 text-slate-500');
+
+                return { selected, popover, database, categories, categorizedDatabase, togglePopover, toggleTopic, toggleTask, getSelectedInCat, getCategoryColor, showAdmin, newItem, saveNewItem, deleteItem, editItem, syncing, connected, resetSelection,expandedCategories, toggleAccordion };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
