@@ -72,12 +72,20 @@
 
         <transition>
             <div v-if="popover.isOpen" class="fixed z-50 left-72 top-4 bottom-4 w-[500px] bg-slate-800 border border-slate-700 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.8)] popover-arrow flex flex-col overflow-hidden" style="margin-left: 10px;">
+                
                 <header class="p-6 border-b border-slate-700 flex justify-between items-center bg-slate-800/50">
                     <h3 class="text-xs font-black text-blue-400 tracking-[0.3em] uppercase">{{ popover.cat }} Select</h3>
                     <button @click="popover.isOpen = false" class="text-slate-500 hover:text-white font-bold text-xs">DONE</button>
                 </header>
-               <div id="sortable-grid" class="p-6 overflow-y-auto grid grid-cols-2 gap-3">
-                    <div v-for="topic in categorizedDatabase[popover.cat]" :key="topic" :data-id="topic" 
+
+                <div class="px-6 py-4 bg-slate-900/30 border-b border-slate-800 flex items-center gap-3">
+                    <svg class="text-slate-500" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <input v-model="searchQuery" type="text" placeholder="SEARCH TOPICS..." class="bg-transparent text-white font-bold text-xs w-full outline-none placeholder-slate-600 uppercase tracking-wider">
+                    <button v-if="searchQuery" @click="searchQuery = ''" class="text-slate-500 hover:text-white">✕</button>
+                </div>
+
+                <div id="sortable-grid" class="p-6 overflow-y-auto grid grid-cols-2 gap-3">
+                    <div v-for="topic in filteredTopics" :key="topic" :data-id="topic" 
                         @click="toggleTopic(topic)"
                         :class="selected.includes(topic) ? 'bg-blue-600 border-blue-400 text-white ring-2 ring-blue-400/30' : 'bg-slate-700/50 border-slate-600 text-slate-400'"
                         class="p-4 rounded-xl border-2 text-left transition-all active:scale-95 flex flex-col justify-center h-24 shadow-lg cursor-move select-none touch-manipulation">
@@ -85,7 +93,11 @@
                         <span class="text-[13px] font-black leading-tight pointer-events-none">{{ topic }}</span>
                         <div v-if="selected.includes(topic)" class="flex justify-end mt-2 pointer-events-none"><span class="text-[9px] font-black bg-white/20 px-1.5 py-0.5 rounded">ADDED</span></div>
                     </div>
+                    
+                    <div v-if="filteredTopics.length === 0" class="col-span-2 text-center py-10 opacity-50">
+                        <p class="text-xs font-bold text-slate-500">NO MATCHES FOUND</p>
                     </div>
+                </div>
             </div>
         </transition>
 
@@ -152,35 +164,74 @@
                             </div>
                             <button @click="saveNewItem" class="w-full py-4 bg-blue-600 hover:bg-blue-500 text-white font-black rounded-xl shadow-lg shadow-blue-900/20 active:scale-95 transition">SYNC TO CLOUD</button>
                         </div>
-                        <div class="p-8 overflow-y-auto space-y-4 bg-slate-900/30">
-                            <h3 class="text-xs font-black text-slate-500 tracking-widest mb-4">CURRENT DATABASE</h3>
-                            
-                            <div v-for="cat in categories" :key="cat" class="rounded-xl overflow-hidden border border-slate-800 bg-slate-800/30">
-                                <button @click="toggleAccordion(cat)" class="w-full flex items-center justify-between p-4 hover:bg-slate-800 transition">
-                                    <div class="flex items-center gap-3">
-                                        <div class="transition-transform duration-200" :class="expandedCategories.includes(cat) ? 'rotate-90' : 'rotate-0'">
-                                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500"><polyline points="9 18 15 12 9 6"></polyline></svg>
-                                        </div>
-                                        <span class="w-2 h-2 rounded-full shadow-[0_0_5px_currentColor]" :class="getCategoryColor(cat)"></span>
-                                        <span class="text-[11px] font-black tracking-widest text-slate-400">{{ cat }}</span>
-                                    </div>
-                                    <span class="text-[9px] font-bold bg-slate-900 text-slate-500 px-2 py-1 rounded-md">
-                                        {{ categorizedDatabase[cat] ? categorizedDatabase[cat].length : 0 }}
-                                    </span>
-                                </button>
 
-                                <div v-if="expandedCategories.includes(cat)" class="bg-slate-900/50 border-t border-slate-800">
-                                    <div v-if="categorizedDatabase[cat] && categorizedDatabase[cat].length > 0" class="divide-y divide-slate-800/50">
-                                        <div v-for="topic in categorizedDatabase[cat]" :key="topic" class="flex items-center justify-between p-4 pl-10 hover:bg-white/5 transition group">
-                                            <span class="text-sm font-bold text-slate-300 group-hover:text-white transition">{{ topic }}</span>
-                                            <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <button @click="editItem(topic)" class="text-blue-400 hover:text-white text-[9px] font-black px-2 py-1 border border-blue-900/50 rounded bg-blue-900/20">EDIT</button>
-                                                <button @click="deleteItem(topic)" class="text-slate-500 hover:text-red-500 text-[9px] font-black px-2 py-1 border border-slate-800 rounded hover:bg-red-900/20">DEL</button>
+                        <div class="p-8 overflow-y-auto bg-slate-900/30 flex flex-col h-full">
+                            
+                            <div class="mb-6 relative shrink-0">
+                                <div class="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                                    <svg class="h-4 w-4 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                                </div>
+                                <input v-model="adminSearchQuery" type="text" placeholder="SEARCH ENTIRE DATABASE..." class="w-full bg-slate-800 border border-slate-700 text-white text-xs font-bold rounded-lg py-3 pl-10 pr-4 outline-none focus:border-blue-500 transition placeholder-slate-600 tracking-wider">
+                                <button v-if="adminSearchQuery" @click="adminSearchQuery = ''" class="absolute inset-y-0 right-3 flex items-center text-slate-500 hover:text-white">✕</button>
+                            </div>
+
+                            <div class="flex-1 overflow-y-auto pr-2">
+                                
+                                <div v-if="adminSearchQuery">
+                                    <h3 class="text-[10px] font-black text-blue-400 tracking-widest mb-4 uppercase">SEARCH RESULTS ({{ adminSearchResults.length }})</h3>
+                                    
+                                    <div v-if="adminSearchResults.length > 0" class="space-y-2">
+                                        <div v-for="item in adminSearchResults" :key="item.topic" class="flex items-center justify-between p-4 bg-slate-800/50 rounded-xl border border-blue-500/30 hover:bg-slate-800 transition">
+                                            <div class="flex items-center gap-3">
+                                                <span class="text-[9px] font-black px-1.5 py-0.5 rounded bg-slate-900 text-slate-500 border border-slate-700">{{ item.category }}</span>
+                                                <span class="text-sm font-bold text-white">{{ item.topic }}</span>
+                                            </div>
+                                            <div class="flex items-center gap-2">
+                                                <button @click="editItem(item.topic)" class="text-blue-400 hover:text-white text-[9px] font-black px-2 py-1 border border-blue-900/50 rounded bg-blue-900/20">EDIT</button>
+                                                <button @click="deleteItem(item.topic)" class="text-slate-500 hover:text-red-500 text-[9px] font-black px-2 py-1 border border-slate-800 rounded hover:bg-red-900/20">DEL</button>
                                             </div>
                                         </div>
                                     </div>
-                                    <div v-else class="p-4 pl-10 text-[10px] text-slate-600 italic">
-                                        NO DATABASE
+                                    <div v-else class="text-center py-10 opacity-50 text-xs font-bold text-slate-500">NO MATCHES FOUND</div>
+                                </div>
+
+                                <div v-else class="space-y-4">
+                                    <h3 class="text-xs font-black text-slate-500 tracking-widest mb-4">CURRENT DATABASE</h3>
+                                    
+                                    <div v-for="cat in categories" :key="cat" class="rounded-xl overflow-hidden border border-slate-800 bg-slate-800/30">
+                                        <button @click="toggleAccordion(cat)" class="w-full flex items-center justify-between p-4 hover:bg-slate-800 transition">
+                                            <div class="flex items-center gap-3">
+                                                <div class="transition-transform duration-200" :class="expandedCategories.includes(cat) ? 'rotate-90' : 'rotate-0'">
+                                                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="text-slate-500"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                                                </div>
+                                                <span class="w-2 h-2 rounded-full shadow-[0_0_5px_currentColor]" :class="getCategoryColor(cat)"></span>
+                                                <span class="text-[11px] font-black tracking-widest text-slate-400">{{ cat }}</span>
+                                            </div>
+                                            <span class="text-[9px] font-bold bg-slate-900 text-slate-500 px-2 py-1 rounded-md">
+                                                {{ categorizedDatabase[cat] ? categorizedDatabase[cat].length : 0 }}
+                                            </span>
+                                        </button>
+
+                                        <div v-if="expandedCategories.includes(cat)" class="bg-slate-900/50 border-t border-slate-800">
+                                            <div v-if="categorizedDatabase[cat] && categorizedDatabase[cat].length > 0" class="divide-y divide-slate-800/50">
+                                                <div v-for="(topic, idx) in categorizedDatabase[cat]" :key="topic" class="flex items-center justify-between p-4 pl-10 hover:bg-white/5 transition group">
+                                                    <span class="text-sm font-bold text-slate-300 group-hover:text-white transition">{{ topic }}</span>
+                                                    <div class="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <div class="flex flex-col gap-0.5 mr-2">
+                                                            <button @click.stop="moveItem(topic, -1)" class="text-slate-500 hover:text-blue-400 p-1 bg-slate-800 rounded hover:bg-slate-700 leading-none flex items-center justify-center h-4 w-6">
+                                                                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"></polyline></svg>
+                                                            </button>
+                                                            <button @click.stop="moveItem(topic, 1)" class="text-slate-500 hover:text-blue-400 p-1 bg-slate-800 rounded hover:bg-slate-700 leading-none flex items-center justify-center h-4 w-6">
+                                                                <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                                                            </button>
+                                                        </div>
+                                                        <button @click="editItem(topic)" class="text-blue-400 hover:text-white text-[9px] font-black px-2 py-1 border border-blue-900/50 rounded bg-blue-900/20">EDIT</button>
+                                                        <button @click="deleteItem(topic)" class="text-slate-500 hover:text-red-500 text-[9px] font-black px-2 py-1 border border-slate-800 rounded hover:bg-red-900/20">DEL</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div v-else class="p-4 pl-10 text-[10px] text-slate-600 italic">NO TOPICS</div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -272,8 +323,19 @@
                     }
                     return dict;
                 });
+
+                // ▼▼▼ 追加：検索用の変数 ▼▼▼
+                const searchQuery = ref('');
+
+                // ▼▼▼ 追加：検索で絞り込まれたリストを返す ▼▼▼
+                const filteredTopics = computed(() => {
+                    const list = categorizedDatabase.value[popover.value.cat] || [];
+                    if (!searchQuery.value) return list;
+                    // 大文字小文字を区別せず検索
+                    return list.filter(t => t.toUpperCase().includes(searchQuery.value.toUpperCase()));
+                });
                 
-                // ▼▼▼ ドラッグ＆ドロップ対応版 togglePopover ▼▼▼
+                // ▼▼▼ 修正：togglePopover（検索ワードのリセットを追加） ▼▼▼
                 let sortableInstance = null;
 
                 const togglePopover = (cat) => {
@@ -282,6 +344,7 @@
                         return;
                     }
                     
+                    searchQuery.value = ''; // ← 開くたびに検索窓を空にする
                     popover.value.cat = cat; 
                     popover.value.isOpen = true;
 
@@ -296,31 +359,22 @@
                                 delayOnTouchOnly: true,
                                 ghostClass: 'opacity-50',
                                 onEnd: (evt) => {
+                                    // ▼▼▼ 追加：検索中は並び替えを保存させない（安全策） ▼▼▼
+                                    if (searchQuery.value) return; 
+
                                     const newIndex = evt.newIndex;
                                     const oldIndex = evt.oldIndex;
-                                    
-                                    // 位置が変わっていなければ何もしない
                                     if (newIndex === oldIndex) return;
 
-                                    // 1. 現在の並び順（配列）をコピー
-                                    // categorizedDatabaseは並び替え済みなので、ここから取得するのが正解
                                     const currentList = [...categorizedDatabase.value[cat]];
-                                    
-                                    // 2. 配列の中でアイテムを移動させる
                                     const movedItem = currentList.splice(oldIndex, 1)[0];
                                     currentList.splice(newIndex, 0, movedItem);
 
-                                    // 3. 【重要】新しい順番で全アイテムに番号を振り直して一括保存
                                     const updates = {};
                                     currentList.forEach((topicName, index) => {
-                                        // データベースの "tem_database/トピック名/order" を更新
                                         updates['tem_database/' + topicName + '/order'] = index;
                                     });
-
-                                    // Firebaseに一括送信（これで保存漏れがなくなります）
-                                    db.ref().update(updates)
-                                      .then(() => console.log('Order updated!'))
-                                      .catch(err => console.error('Update failed', err));
+                                    db.ref().update(updates);
                                 }
                             });
                         }
@@ -403,7 +457,22 @@
                     'REFERENCE': 'bg-indigo-500 text-indigo-500'
                 }[cat] || 'bg-slate-500 text-slate-500');
 
-                return { selected, popover, database, categories, categorizedDatabase, togglePopover, toggleTopic, toggleTask, getSelectedInCat, getCategoryColor, showAdmin, newItem, saveNewItem, deleteItem, editItem, syncing, connected, resetSelection,expandedCategories, toggleAccordion };
+                // ▼▼▼ 追加：管理画面用・全体検索ロジック ▼▼▼
+                const adminSearchQuery = ref('');
+
+                const adminSearchResults = computed(() => {
+                    if (!adminSearchQuery.value) return [];
+                    const query = adminSearchQuery.value.toUpperCase();
+                    
+                    // データベース全体（Object.entries）から検索
+                    // カテゴリー関係なく、キー（トピック名）に文字が含まれるものを抽出
+                    return Object.entries(database.value)
+                        .filter(([topic, data]) => topic.toUpperCase().includes(query))
+                        .map(([topic, data]) => ({ topic, ...data })); // 扱いやすい形に整形
+                });
+                // ▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲▲
+
+                return { selected, popover, database, categories, categorizedDatabase, searchQuery, filteredTopics, togglePopover, toggleTopic, toggleTask, getSelectedInCat, getCategoryColor, showAdmin, newItem, saveNewItem, deleteItem, adminSearchQuery, adminSearchResults, editItem, syncing, connected, resetSelection,expandedCategories, toggleAccordion };
             }
         }).mount('#app');
     </script>
